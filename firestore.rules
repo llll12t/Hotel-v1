@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin (you can customize this)
+    function isAdmin() {
+      return request.auth != null; // Simple check for now, ideally check custom claims or admin collection
+    }
+
+    // Room Types: Public Read (Guests needs to start booking), Admin Write
+    match /roomTypes/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Rooms: Public Read (Check availability), Admin Write
+    match /rooms/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Bookings: Public Create (Guest books), Admin Read/Update
+    // Guests can read their own bookings usually, but for now let's keep it simple
+    match /bookings/{document} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Default: Deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
