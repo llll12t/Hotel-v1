@@ -183,7 +183,7 @@ export async function createPaymentFlexTemplate(appointmentData: any) {
                         action: {
                             type: "uri",
                             label: "ชำระเงิน",
-                            uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID}/payment/${id}`
+                            uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID}/payment/${safeId}`
                         },
                         color: "#553734"
                     }
