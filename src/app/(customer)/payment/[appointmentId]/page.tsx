@@ -1,194 +1,276 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/app/lib/firebase';
-import QRCode from 'qrcode';
-import generatePayload from 'promptpay-qr';
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import QRCode from "qrcode";
+import generatePayload from "promptpay-qr";
+import { db } from "@/app/lib/firebase";
+import { useLiffContext } from "@/context/LiffProvider";
+import ImageUploadBase64 from "@/app/components/ImageUploadBase64";
+import LoadingScreen from "@/app/components/common/LoadingScreen";
+import { submitPaymentSlip } from "@/app/actions/paymentSlipActions";
+
+type PaymentMethod = "image" | "promptpay" | "bankinfo";
+
+interface PaymentSettings {
+  method?: PaymentMethod;
+  qrCodeImageUrl?: string;
+  promptPayAccount?: string;
+  bankInfoText?: string;
+}
+
+interface AppointmentData {
+  id: string;
+  serviceInfo?: { name?: string };
+  paymentInfo?: { totalPrice?: number; paymentDueAt?: unknown; paymentStatus?: string };
+}
+
+const parseDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
+function PaymentContent() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const { liff } = useLiffContext();
+
+  const [appointment, setAppointment] = useState<AppointmentData | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
+  const [slipBase64, setSlipBase64] = useState("");
+  const [slipNote, setSlipNote] = useState("");
+  const [sendingNotice, setSendingNotice] = useState(false);
+  const [noticeSent, setNoticeSent] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const resolvedAppointmentId = useMemo(() => {
+    let id = (params?.appointmentId as string) || "";
+    if (!id) id = (searchParams.get("appointmentId") as string) || "";
+
+    if (!id) {
+      const liffState = searchParams.get("liff.state");
+      if (liffState) {
+        const parts = liffState.split("/");
+        const idx = parts.findIndex((p) => p === "payment");
+        if (idx !== -1 && parts[idx + 1]) id = parts[idx + 1];
+      }
+    }
+
+    if (!id && typeof window !== "undefined") {
+      const parts = window.location.pathname.split("/");
+      const idx = parts.findIndex((p) => p === "payment");
+      if (idx !== -1 && parts[idx + 1]) id = parts[idx + 1];
+    }
+    return id;
+  }, [params, searchParams]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!resolvedAppointmentId) {
+        setError("ไม่พบรหัสการจอง");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const [paymentSnap, appointmentSnap] = await Promise.all([
+          getDoc(doc(db, "settings", "payment")),
+          getDoc(doc(db, "appointments", resolvedAppointmentId)),
+        ]);
+
+        if (!paymentSnap.exists()) throw new Error("ไม่พบการตั้งค่าการชำระเงิน");
+        if (!appointmentSnap.exists()) throw new Error("ไม่พบข้อมูลการจอง");
+
+        const settings = paymentSnap.data() as PaymentSettings;
+        const appData = { id: appointmentSnap.id, ...appointmentSnap.data() } as AppointmentData;
+        setPaymentSettings(settings);
+        setAppointment(appData);
+
+        if (settings.method === "image") {
+          if (!settings.qrCodeImageUrl) throw new Error("ยังไม่ได้ตั้งค่ารูป QR Code");
+          setQrCodeDataUrl(settings.qrCodeImageUrl);
+        } else if (settings.method === "promptpay") {
+          const amount = Number(appData.paymentInfo?.totalPrice || 0);
+          if (!amount || amount <= 0) throw new Error("ยอดชำระไม่ถูกต้อง");
+          if (!settings.promptPayAccount) throw new Error("ยังไม่ได้ตั้งค่าบัญชี PromptPay");
+          const payload = generatePayload(settings.promptPayAccount, { amount });
+          const qrCodeUrl = await QRCode.toDataURL(payload, { width: 360, margin: 1 });
+          setQrCodeDataUrl(qrCodeUrl);
+        } else if (settings.method === "bankinfo") {
+          if (!settings.bankInfoText) throw new Error("ยังไม่ได้ตั้งค่าข้อมูลบัญชีธนาคาร");
+        } else {
+          throw new Error("รูปแบบการชำระเงินไม่ถูกต้อง");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [resolvedAppointmentId]);
+
+  const totalPrice = Number(appointment?.paymentInfo?.totalPrice || 0);
+  const serviceName = appointment?.serviceInfo?.name || "-";
+  const shortBookingId = (appointment?.id || "-").slice(0, 8).toUpperCase();
+  const dueDate = parseDate(appointment?.paymentInfo?.paymentDueAt);
+  const dueLabel = dueDate
+    ? `${dueDate.toLocaleDateString("th-TH")} ${dueDate.toLocaleTimeString("th-TH", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : "ภายในวันนี้";
+
+  const sendPaymentNotice = async () => {
+    if (!appointment || !resolvedAppointmentId) return;
+    if (!slipBase64) {
+      setError("กรุณาอัปโหลดสลิปก่อนแจ้งชำระเงิน");
+      return;
+    }
+
+    setSendingNotice(true);
+    setError("");
+    try {
+      const lineAccessToken = liff?.getAccessToken?.();
+      const saveResult = await submitPaymentSlip(
+        resolvedAppointmentId,
+        { slipBase64, note: slipNote?.trim() || `แจ้งชำระจาก LIFF: ${shortBookingId}` },
+        { lineAccessToken }
+      );
+
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || "บันทึกสลิปไม่สำเร็จ");
+      }
+
+      if (liff && typeof liff.isInClient === "function" && liff.isInClient()) {
+        const text = [
+          "แจ้งชำระเงินแล้ว",
+          `รหัสการจอง: ${shortBookingId}`,
+          `บริการ: ${serviceName}`,
+          `ยอดชำระ: ${totalPrice.toLocaleString()} บาท`,
+          "ส่งสลิปเรียบร้อยแล้ว",
+        ].join("\n");
+        await liff.sendMessages([{ type: "text", text } as unknown as object]);
+      }
+
+      setNoticeSent(true);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "ส่งแจ้งชำระเงินไม่สำเร็จ");
+    } finally {
+      setSendingNotice(false);
+    }
+  };
+
+  if (loading) {
+    return <LoadingScreen spinnerStyle={{ animationDuration: "2.4s" }} />;
+  }
+
+  if (error && !appointment) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f4f2] p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-red-200 bg-white p-6 text-center">
+          <div className="mb-2 text-sm font-semibold text-red-700">เกิดข้อผิดพลาด</div>
+          <p className="text-sm text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f4f2] p-4">
+      <div className="mx-auto w-full max-w-md rounded-3xl border border-[#e6e4df] bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-start justify-between border-b border-[#f0efeb] pb-4">
+          <div>
+            <h1 className="text-base font-bold text-[#1f1f22]">ชำระเงินค่าบริการ</h1>
+            <p className="mt-1 text-xs text-[#7b7b80]">รหัสการจอง {shortBookingId}</p>
+          </div>
+          <div className="rounded-full bg-[#f4f1ec] px-3 py-1 text-xs font-semibold text-[#5c4332]">
+            {appointment?.paymentInfo?.paymentStatus === "pending_verification" ? "รอตรวจสอบสลิป" : "รอชำระเงิน"}
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-[#efede8] bg-[#faf9f7] p-4">
+          <div className="text-xs text-[#78787d]">บริการ</div>
+          <div className="mb-2 text-sm font-semibold text-[#202024]">{serviceName}</div>
+          <div className="text-xs text-[#78787d]">ครบกำหนดชำระ</div>
+          <div className="text-sm font-medium text-[#202024]">{dueLabel}</div>
+          <div className="mt-3 flex items-end justify-between border-t border-[#ece9e2] pt-3">
+            <span className="text-sm font-semibold text-[#2b2b30]">ยอดชำระ</span>
+            <span className="text-2xl font-bold tracking-tight text-[#5c4332]">
+              {totalPrice.toLocaleString()}
+              <span className="ml-1 text-sm font-medium text-[#7a7a80]">บาท</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-[#ece9e2] p-4">
+          {paymentSettings?.method === "bankinfo" ? (
+            <div>
+              <div className="mb-2 text-xs font-semibold tracking-wide text-[#6f6f75]">รายละเอียดบัญชี</div>
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-[#2d2d32]">{paymentSettings.bankInfoText}</pre>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="mb-2 text-xs font-semibold tracking-wide text-[#6f6f75]">สแกนเพื่อชำระเงิน</div>
+              <img
+                src={qrCodeDataUrl}
+                alt="QR Code"
+                className="mx-auto h-[220px] w-[220px] rounded-xl border border-[#efede8] object-contain p-2"
+              />
+              {paymentSettings?.method === "promptpay" && paymentSettings.promptPayAccount ? (
+                <div className="mt-2 text-xs text-[#6b6b70]">PromptPay: {paymentSettings.promptPayAccount}</div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-[#ece9e2] p-4">
+          <div className="mb-2 text-xs font-semibold tracking-wide text-[#6f6f75]">อัปโหลดสลิปการชำระเงิน</div>
+          <ImageUploadBase64 imageUrl={slipBase64} onImageChange={setSlipBase64} compact />
+          <textarea
+            value={slipNote}
+            onChange={(e) => setSlipNote(e.target.value)}
+            rows={2}
+            placeholder="หมายเหตุ (ถ้ามี)"
+            className="mt-3 w-full rounded-xl border border-[#ece9e2] px-3 py-2 text-xs text-[#303038] outline-none focus:border-[#5c4332]"
+          />
+        </div>
+
+        {!!error && <div className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+
+        <button
+          onClick={sendPaymentNotice}
+          disabled={sendingNotice || noticeSent}
+          className="w-full rounded-2xl bg-[#1f1f22] py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-gray-300"
+        >
+          {sendingNotice ? "กำลังแจ้งชำระเงิน..." : noticeSent ? "แจ้งชำระเงินแล้ว" : "แจ้งชำระเงิน"}
+        </button>
+
+        <p className="mt-3 text-center text-[11px] text-[#8a8a90]">
+          ระบบจะจัดเก็บสลิปแยกออกจากข้อมูลการจอง และลบอัตโนมัติเมื่อครบระยะเวลาที่กำหนด
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function PaymentPage() {
-    const params = useParams();
-    const searchParams = useSearchParams();
-    const routeAppointmentId = params?.appointmentId as string;
-    const [appointment, setAppointment] = useState<any | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-    const [paymentSettings, setPaymentSettings] = useState<any | null>(null);
-
-    useEffect(() => {
-        const fetchAppointmentAndSettings = async () => {
-            let appointmentId = routeAppointmentId;
-            if (!appointmentId) {
-                appointmentId = searchParams.get('appointmentId') as string;
-            }
-            if (!appointmentId) {
-                const liffState = searchParams.get('liff.state');
-                if (liffState) {
-                    const parts = liffState.split('/');
-                    const paymentIndex = parts.findIndex((part) => part === 'payment');
-                    if (paymentIndex !== -1 && parts.length > paymentIndex + 1) {
-                        appointmentId = parts[paymentIndex + 1];
-                    }
-                }
-            }
-            if (!appointmentId && typeof window !== 'undefined') {
-                const pathParts = window.location.pathname.split('/');
-                const paymentIndex = pathParts.findIndex((part) => part === 'payment');
-                if (paymentIndex !== -1 && pathParts.length > paymentIndex + 1) {
-                    appointmentId = pathParts[paymentIndex + 1];
-                }
-            }
-
-            if (!appointmentId) {
-                setError('ไม่พบรหัสการนัดหมาย');
-                setLoading(false);
-                return;
-            }
-
-            try {
-                // Fetch Payment Settings first
-                const paymentRef = doc(db, 'settings', 'payment');
-                const paymentSnap = await getDoc(paymentRef);
-                if (!paymentSnap.exists()) {
-                    throw new Error("ไม่พบการตั้งค่าการชำระเงินของร้านค้า");
-                }
-                const settings = paymentSnap.data();
-                setPaymentSettings(settings);
-
-                // Fetch Appointment
-                const appointmentRef = doc(db, 'appointments', appointmentId);
-                const appointmentSnap = await getDoc(appointmentRef);
-                if (!appointmentSnap.exists()) {
-                    throw new Error("ไม่พบข้อมูลการนัดหมาย");
-                }
-                const appointmentData: any = { id: appointmentSnap.id, ...appointmentSnap.data() };
-                setAppointment(appointmentData);
-
-                // Generate QR Code based on settings
-                if (settings.method === 'image') {
-                    if (!settings.qrCodeImageUrl) {
-                        throw new Error("ร้านค้ายังไม่ได้ตั้งค่ารูปภาพ QR Code");
-                    }
-                    setQrCodeDataUrl(settings.qrCodeImageUrl);
-                } else if (settings.method === 'promptpay') {
-                    const amount = parseFloat(String(appointmentData.paymentInfo?.totalPrice ?? '0'));
-                    if (isNaN(amount) || amount <= 0) {
-                        throw new Error("ยอดชำระของรายการนี้ไม่ถูกต้อง");
-                    }
-                    if (!settings.promptPayAccount) {
-                        throw new Error("ร้านค้ายังไม่ได้ตั้งค่าบัญชี PromptPay");
-                    }
-                    const payload = generatePayload(settings.promptPayAccount, { amount });
-                    const qrCodeUrl = await QRCode.toDataURL(payload, { width: 300 });
-                    setQrCodeDataUrl(qrCodeUrl);
-                } else if (settings.method === 'bankinfo') {
-                    if (!settings.bankInfoText) {
-                        throw new Error("ร้านค้ายังไม่ได้ตั้งค่าข้อมูลบัญชีธนาคาร");
-                    }
-                    // ไม่ต้องสร้าง QR Code สำหรับ bankinfo
-                } else {
-                    throw new Error("รูปแบบการชำระเงินที่ร้านค้าตั้งค่าไว้ไม่ถูกต้อง");
-                }
-
-            } catch (err: any) {
-                console.error("Error fetching data:", err);
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchAppointmentAndSettings();
-    }, [routeAppointmentId, searchParams]);
-
-    if (loading) {
-        return (
-            <div className="flex flex-col justify-center items-center h-screen bg-[#FAF9F6]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-gray-500 font-light">กำลังโหลดข้อมูล...</p>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="min-h-screen bg-[#FAF9F6] p-6 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-sm p-8 text-center max-w-sm w-full">
-                    <div className="text-red-500 mb-4">
-                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
-                    </div>
-                    <div className="text-gray-900 text-lg font-semibold mb-2">เกิดข้อผิดพลาด</div>
-                    <p className="text-gray-600 mb-6">{error}</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-[340px] bg-white rounded-3xl p-6 text-center shadow-sm">
-
-                {/* Header & Price */}
-                <div className="mb-6">
-                    <h1 className="text-lg font-bold text-gray-900 mb-0.5">ชำระค่าบริการ</h1>
-                    <p className="text-xs text-gray-500 mb-4">{appointment?.serviceInfo?.name}</p>
-
-                    <div className="inline-flex items-baseline justify-center gap-1.5 bg-primary/5 px-5 py-2.5 rounded-2xl">
-                        <span className="text-3xl font-bold text-primary tracking-tight">
-                            {appointment?.paymentInfo?.totalPrice?.toLocaleString()}
-                        </span>
-                        <span className="text-sm font-medium text-gray-500">THB</span>
-                    </div>
-                </div>
-
-                {/* QR Section */}
-                <div className="mb-4">
-                    {paymentSettings?.method === 'bankinfo' ? (
-                        <div className="bg-gray-50 rounded-xl p-4 text-left">
-                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200/50">
-                                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                </svg>
-                                <span className="font-semibold text-xs text-gray-700">บัญชีธนาคาร</span>
-                            </div>
-                            <pre className="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed text-sm">
-                                {paymentSettings.bankInfoText}
-                            </pre>
-                        </div>
-                    ) : qrCodeDataUrl ? (
-                        <div className="flex flex-col items-center">
-                            {/* QR Image */}
-                            <div className="mb-3">
-                                <img src={qrCodeDataUrl} alt="QR Code" className="w-[180px] h-[180px] object-contain mix-blend-multiply" />
-                            </div>
-
-                            {/* PromptPay Number */}
-                            {paymentSettings?.method === 'promptpay' && (
-                                <div className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                                    <span className="text-xs font-mono text-gray-600 tracking-wide">
-                                        {paymentSettings.promptPayAccount}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="bg-red-50 text-red-600 text-xs p-3 rounded-xl">
-                            <p className="font-semibold">ไม่สามารถสร้าง QR Code ได้</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="pt-4 border-t border-dashed border-gray-100">
-                    <p className="text-[10px] text-gray-400 font-light">
-                        เมื่อชำระเงินเรียบร้อยแล้ว<br />
-                        <span className="text-gray-500 font-normal">กรุณาส่งสลิปหลักฐานผ่านทาง LINE OA</span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+  return (
+    <Suspense fallback={<LoadingScreen spinnerStyle={{ animationDuration: "2.4s" }} />}>
+      <PaymentContent />
+    </Suspense>
+  );
 }

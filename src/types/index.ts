@@ -121,6 +121,7 @@ export interface Appointment {
     bookingInfo?: {
         roomTypeId?: string;
         roomId?: string | null;
+        roomNumber?: string | number | null;
         checkInDate?: string;
         checkOutDate?: string;
         nights?: number;
@@ -140,7 +141,9 @@ export interface Appointment {
         addOnsTotal?: number;
         discount?: number;
         couponDiscount?: number;
-        paymentStatus?: 'paid' | 'unpaid' | 'invoiced' | 'pending';
+        paymentStatus?: 'paid' | 'unpaid' | 'invoiced' | 'pending' | 'pending_verification';
+        latestSlipId?: string | null;
+        slipSubmittedAt?: any;
         paymentMethod?: string;
         paidAt?: any;
         paymentDueAt?: any;

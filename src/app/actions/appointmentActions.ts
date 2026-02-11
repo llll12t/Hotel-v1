@@ -52,6 +52,13 @@ const toDateSafe = (value: any) => {
     return null;
 };
 
+const ACTIVE_ROOM_BOOKING_STATUSES = ['pending', 'awaiting_confirmation', 'confirmed', 'in_progress'] as const;
+
+const isDateOverlap = (checkInA: string, checkOutA: string, checkInB?: string, checkOutB?: string) => {
+    if (!checkInB || !checkOutB) return false;
+    return checkInA < checkOutB && checkOutA > checkInB;
+};
+
 // Re-exporting createAppointmentWithSlotCheck for brevity (it was correct in previous step)
 export async function createAppointmentWithSlotCheck(appointmentData: any, auth?: AuthContext) {
     const { date, time, serviceId, technicianId } = appointmentData;
@@ -344,6 +351,38 @@ export async function createBooking(bookingData: any, auth?: AuthContext) {
         const checkInDateObj = new Date(`${checkInDate}T00:00:00`);
         const appointmentDateTime = Timestamp.fromDate(checkInDateObj);
 
+        // Assign room immediately at booking time and prevent overbooking.
+        const roomsSnap = await db.collection('rooms').where('roomTypeId', '==', roomTypeId).get();
+        const roomDocs = roomsSnap.docs.filter((d: any) => {
+            const status = (d.data()?.status || '').toString();
+            return !status || status === 'available';
+        });
+        if (roomDocs.length === 0) {
+            return { success: false, error: 'No room inventory for this room type.' };
+        }
+
+        const roomBookingsSnap = await db.collection('appointments').where('bookingType', '==', 'room').get();
+        let reservedRoomsCount = 0;
+        const occupiedRoomIds = new Set<string>();
+        roomBookingsSnap.docs.forEach((docSnap: any) => {
+            const data = docSnap.data() || {};
+            if (!ACTIVE_ROOM_BOOKING_STATUSES.includes(data.status)) return;
+            const info = data.bookingInfo || {};
+            if (info.roomTypeId !== roomTypeId) return;
+            if (!isDateOverlap(checkInDate, checkOutDate, info.checkInDate, info.checkOutDate)) return;
+
+            reservedRoomsCount += Number(info.rooms || 1);
+            if (info.roomId) occupiedRoomIds.add(info.roomId);
+        });
+
+        if (reservedRoomsCount + roomsCount > roomDocs.length) {
+            return { success: false, error: 'Room is fully booked for selected dates.' };
+        }
+
+        const assignedRoomDoc = roomDocs.find((d: any) => !occupiedRoomIds.has(d.id));
+        const assignedRoomId = assignedRoomDoc?.id || null;
+        const assignedRoomNumber = assignedRoomDoc?.data()?.number || null;
+
         const incomingStatus = bookingData.status;
         const finalStatus = incomingStatus && incomingStatus !== 'awaiting_confirmation' ? incomingStatus : 'pending';
         const paymentDueAtDate = toDateSafe(bookingData.paymentInfo?.paymentDueAt) ?? getBangkokEndOfDay();
@@ -369,7 +408,8 @@ export async function createBooking(bookingData: any, auth?: AuthContext) {
             },
             bookingInfo: {
                 roomTypeId,
-                roomId: bookingData.roomId || null,
+                roomId: assignedRoomId,
+                roomNumber: assignedRoomNumber,
                 checkInDate,
                 checkOutDate,
                 nights,

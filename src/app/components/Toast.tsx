@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, ReactNode, useCallback, useMemo } from 'react';
 
 // Define the shape of a Toast
 export interface Toast {
@@ -41,7 +41,16 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     const [hasUnread, setHasUnread] = useState(false);
     const toastIdRef = useRef(0);
 
-    const showToast = (message: string, type: Toast['type'] = 'info') => {
+    const removeToast = useCallback((id: number) => {
+        setToasts(prev => {
+            const filtered = prev.filter(toast => toast.id !== id);
+            const stillHasUnread = filtered.some(t => !t.read);
+            setHasUnread(stillHasUnread);
+            return filtered;
+        });
+    }, []);
+
+    const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
         toastIdRef.current += 1;
         const id = toastIdRef.current;
         const toast: Toast = { id, message, type, read: false, timestamp: new Date() };
@@ -53,46 +62,39 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         setTimeout(() => {
             removeToast(id);
         }, 5000);
-    };
+    }, [removeToast]);
 
-    const markAsRead = (id: number) => {
+    const markAsRead = useCallback((id: number) => {
         setToasts(prev => {
             const updated = prev.map(t => t.id === id ? { ...t, read: true } : t);
             const stillHasUnread = updated.some(t => !t.read);
             setHasUnread(stillHasUnread);
             return updated;
         });
-    };
+    }, []);
 
-    const markAllAsRead = () => {
+    const markAllAsRead = useCallback(() => {
         setToasts(prev => prev.map(t => ({ ...t, read: true })));
         setHasUnread(false);
-    };
+    }, []);
 
-    const removeToast = (id: number) => {
-        setToasts(prev => {
-            const filtered = prev.filter(toast => toast.id !== id);
-            const stillHasUnread = filtered.some(t => !t.read);
-            setHasUnread(stillHasUnread);
-            return filtered;
-        });
-    };
-
-    const clearAllToasts = () => {
+    const clearAllToasts = useCallback(() => {
         setToasts([]);
         setHasUnread(false);
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        showToast,
+        markAsRead,
+        markAllAsRead,
+        removeToast,
+        clearAllToasts,
+        toasts,
+        hasUnread
+    }), [showToast, markAsRead, markAllAsRead, removeToast, clearAllToasts, toasts, hasUnread]);
 
     return (
-        <ToastContext.Provider value={{
-            showToast,
-            markAsRead,
-            markAllAsRead,
-            removeToast,
-            clearAllToasts,
-            toasts,
-            hasUnread
-        }}>
+        <ToastContext.Provider value={contextValue}>
             {/* Toast Overlay Component could be included here if not global */}
             {/* For now, just render children, expecting a ToastContainer elsewhere OR simply state provider */}
             {/* Actually the original JS didn't render the toast UI here, it just provided state. 

@@ -20,6 +20,102 @@ interface Coupon {
   used?: boolean;
 }
 
+const createBookingSuccessFlex = (payload: {
+  bookingId: string;
+  roomTypeName: string;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: number;
+  currencySymbol: string;
+}) => ({
+  type: "flex",
+  altText: `จองห้องสำเร็จ ${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+  contents: {
+    type: "bubble",
+    size: "mega",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        {
+          type: "text",
+          text: "จองห้องสำเร็จ",
+          weight: "bold",
+          size: "lg",
+          color: "#553734",
+          align: "center",
+        },
+        {
+          type: "separator",
+          color: "#D9CFC3",
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "เลขที่การจอง", size: "sm", color: "#666666", flex: 3 },
+                { type: "text", text: payload.bookingId.slice(0, 8).toUpperCase(), size: "sm", color: "#111111", align: "end", flex: 4 },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 3 },
+                { type: "text", text: payload.roomTypeName || "-", size: "sm", color: "#111111", align: "end", flex: 4, wrap: true },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "เช็คอิน", size: "sm", color: "#666666", flex: 3 },
+                { type: "text", text: payload.checkIn, size: "sm", color: "#111111", align: "end", flex: 4 },
+              ],
+            },
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                { type: "text", text: "เช็คเอาท์", size: "sm", color: "#666666", flex: 3 },
+                { type: "text", text: payload.checkOut, size: "sm", color: "#111111", align: "end", flex: 4 },
+              ],
+            },
+          ],
+          paddingAll: "12px",
+          backgroundColor: "#F8F8F8",
+          cornerRadius: "10px",
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "ยอดชำระ", weight: "bold", size: "md", color: "#333333", flex: 0 },
+            {
+              type: "text",
+              text: `${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+              weight: "bold",
+              size: "md",
+              color: "#553734",
+              align: "end",
+            },
+          ],
+          paddingAll: "12px",
+          backgroundColor: "#F5F2ED",
+          cornerRadius: "10px",
+        },
+      ],
+      paddingAll: "20px",
+    },
+  },
+});
+
 function ReviewConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -182,6 +278,22 @@ function ReviewConfirmContent() {
         showToast(typeof result.error === "string" ? result.error : "เกิดข้อผิดพลาด", "error");
         setIsSubmitting(false);
         return;
+      }
+
+      if (liff?.isInClient()) {
+        try {
+          const flex = createBookingSuccessFlex({
+            bookingId: result.id || "",
+            roomTypeName: roomType?.name || "",
+            checkIn: formatDate(checkIn),
+            checkOut: formatDate(checkOut),
+            totalPrice: finalTotalPrice,
+            currencySymbol: roomType?.currencySymbol || "฿",
+          });
+          await liff.sendMessages([flex as unknown as object]);
+        } catch (msgError) {
+          console.warn("ส่ง Flex ยืนยันการจองไม่สำเร็จ:", msgError);
+        }
       }
 
       showToast("จองห้องพักสำเร็จ!", "success");

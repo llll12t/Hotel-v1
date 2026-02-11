@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { db, auth } from '@/app/lib/firebase';
 import { doc, getDoc, getDocs, collection, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { updateAppointmentStatusByAdmin, confirmAppointmentAndPaymentByAdmin, sendInvoiceToCustomer } from '@/app/actions/appointmentActions';
+import { getPaymentSlipsByAppointmentForAdmin } from '@/app/actions/paymentSlipActions';
 import { ConfirmationModal } from '@/app/components/common/NotificationComponent';
 import { useToast } from '@/app/components/Toast';
 import { format } from 'date-fns';
@@ -191,6 +192,17 @@ interface EditBookingModalProps {
     rooms: any[];
 }
 
+interface PaymentSlipItem {
+    id: string;
+    slipBase64: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    note?: string;
+    status?: string;
+    createdAt?: string | null;
+    expiresAt?: string | null;
+}
+
 function EditBookingModal({ open, onClose, onSave, defaultData, rooms }: EditBookingModalProps) {
     const [formData, setFormData] = useState(defaultData || {});
     const [processing, setProcessing] = useState(false);
@@ -271,6 +283,8 @@ export default function AppointmentDetailPage() {
     const [roomNumber, setRoomNumber] = useState<string>('-');
     const [rooms, setRooms] = useState<any[]>([]); // Add rooms state
     const [showEditBooking, setShowEditBooking] = useState(false);
+    const [paymentSlips, setPaymentSlips] = useState<PaymentSlipItem[]>([]);
+    const [loadingSlips, setLoadingSlips] = useState(false);
     const { showToast } = useToast();
     const { profile, loading: profileLoading } = useProfile();
 
@@ -319,6 +333,29 @@ export default function AppointmentDetailPage() {
             setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (a.number || '').localeCompare(b.number || '')));
         }).catch(err => console.error(err));
     }, []);
+
+    useEffect(() => {
+        const fetchPaymentSlips = async () => {
+            if (!id || deleted) return;
+            setLoadingSlips(true);
+            try {
+                const token = await getAdminToken();
+                if (!token) return;
+                const result = await getPaymentSlipsByAppointmentForAdmin(id, { adminToken: token });
+                if (result.success) {
+                    setPaymentSlips(result.slips as PaymentSlipItem[]);
+                } else {
+                    showToast(`โหลดสลิปไม่สำเร็จ: ${result.error}`, 'warning');
+                }
+            } catch (err: any) {
+                showToast(`โหลดสลิปไม่สำเร็จ: ${err.message}`, 'error');
+            } finally {
+                setLoadingSlips(false);
+            }
+        };
+
+        fetchPaymentSlips();
+    }, [id, deleted, showToast, appointment?.paymentInfo?.latestSlipId]);
 
     const handleUpdateBooking = async (data: any) => {
         if (!appointment?.id) return;
@@ -592,6 +629,7 @@ export default function AppointmentDetailPage() {
                             <div className="bg-gray-50 rounded-md p-4 mb-4">
                                 <InfoRow label="สถานะ" value={
                                     appointment.paymentInfo?.paymentStatus === 'paid' ? <span className="text-green-600 font-medium">ชำระแล้ว</span> :
+                                        appointment.paymentInfo?.paymentStatus === 'pending_verification' ? <span className="text-amber-600 font-medium">รอตรวจสอบสลิป</span> :
                                         appointment.paymentInfo?.paymentStatus === 'invoiced' ? <span className="text-blue-600 font-medium">ส่งใบแจ้งหนี้แล้ว</span> :
                                             <span className="text-yellow-600 font-medium">รอชำระ</span>
                                 } />
@@ -601,6 +639,45 @@ export default function AppointmentDetailPage() {
                                 )}
                                 {(appointment.paymentInfo as any)?.paidAt && (
                                     <InfoRow label="ชำระเมื่อ" value={format(safeDate((appointment.paymentInfo as any).paidAt), 'd MMM HH:mm', { locale: th })} />
+                                )}
+                            </div>
+
+                            <div className="rounded-md border border-gray-200 p-3 mb-4">
+                                <p className="text-xs font-semibold text-gray-700 mb-2">หลักฐานการชำระเงิน</p>
+                                {loadingSlips ? (
+                                    <p className="text-xs text-gray-500">กำลังโหลดสลิป...</p>
+                                ) : paymentSlips.length === 0 ? (
+                                    <p className="text-xs text-gray-500">ยังไม่มีการแจ้งชำระเงินจากลูกค้า</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="rounded-md border border-gray-100 p-2 bg-gray-50">
+                                            <img
+                                                src={paymentSlips[0].slipBase64}
+                                                alt="Payment slip"
+                                                className="w-full rounded border border-gray-200 object-contain bg-white"
+                                            />
+                                            <div className="mt-2 text-xs text-gray-600 space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span>อัปโหลดเมื่อ</span>
+                                                    <span className="font-medium text-gray-800">
+                                                        {paymentSlips[0].createdAt ? format(new Date(paymentSlips[0].createdAt), 'd MMM yyyy, HH:mm', { locale: th }) : '-'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>สถานะสลิป</span>
+                                                    <span className="font-medium text-gray-800">{paymentSlips[0].status || 'submitted'}</span>
+                                                </div>
+                                                {paymentSlips[0].note ? (
+                                                    <div className="pt-1 border-t border-gray-200 text-gray-700">
+                                                        หมายเหตุ: {paymentSlips[0].note}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                        {paymentSlips.length > 1 ? (
+                                            <p className="text-[11px] text-gray-500">มีสลิปทั้งหมด {paymentSlips.length} รายการ (แสดงล่าสุด)</p>
+                                        ) : null}
+                                    </div>
                                 )}
                             </div>
 
