@@ -10,7 +10,8 @@ import {
     sendServiceCompletedFlexMessage,
     sendAppointmentCancelledFlexMessage,
     sendNewBookingFlexMessage,
-    sendPaymentConfirmationFlexMessage
+    sendPaymentConfirmationFlexMessage,
+    sendCheckInFlexMessage
 } from './lineFlexActions';
 import { sendTelegramMessageToAdmin } from './telegramActions';
 import { awardPointsForPurchase, awardPointsForVisit } from './pointActions';
@@ -58,6 +59,10 @@ const isDateOverlap = (checkInA: string, checkOutA: string, checkInB?: string, c
     if (!checkInB || !checkOutB) return false;
     return checkInA < checkOutB && checkOutA > checkInB;
 };
+
+const isAllNotificationsEnabled = (settings: any) => settings?.allNotifications?.enabled !== false;
+const isCustomerNotificationsEnabled = (settings: any) =>
+    isAllNotificationsEnabled(settings) && settings?.customerNotifications?.enabled !== false;
 
 // Re-exporting createAppointmentWithSlotCheck for brevity (it was correct in previous step)
 export async function createAppointmentWithSlotCheck(appointmentData: any, auth?: AuthContext) {
@@ -286,7 +291,12 @@ export async function createAppointmentWithSlotCheck(appointmentData: any, auth?
         }
 
         const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
-        if (settingsSuccess && resolvedUserId && notificationSettings?.customerNotifications?.newBooking) {
+        if (
+            settingsSuccess &&
+            resolvedUserId &&
+            isCustomerNotificationsEnabled(notificationSettings) &&
+            notificationSettings?.customerNotifications?.newBooking
+        ) {
             await sendNewBookingFlexMessage(resolvedUserId, {
                 serviceName: finalAppointmentData.serviceInfo.name,
                 date: date,
@@ -468,15 +478,31 @@ export async function updateAppointmentStatusByAdmin(appointmentId: string, newS
 
         await db.collection('appointments').doc(appointmentId).update(updateData);
 
+        const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
+        const canNotifyCustomer = settingsSuccess && isCustomerNotificationsEnabled(notificationSettings);
+
         // Notify user if needed
         const appSnap = await db.collection('appointments').doc(appointmentId).get();
         if (appSnap.exists) {
             const appointment = appSnap.data();
             if (appointment && appointment.userId) {
-                if (newStatus === 'confirmed') {
-                    await sendAppointmentConfirmedFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+                if (newStatus === 'in_progress') {
+                    if (canNotifyCustomer) {
+                        await sendCheckInFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+                    }
+                } else if (newStatus === 'confirmed') {
+                    const paymentStatus = appointment.paymentInfo?.paymentStatus;
+                    // Avoid duplicate confirm-like messages when payment confirmation has already been sent.
+                    if (paymentStatus !== 'paid' && canNotifyCustomer && notificationSettings?.customerNotifications?.appointmentConfirmed) {
+                        await sendAppointmentConfirmedFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+                    }
                 } else if (newStatus === 'completed') {
-                    await sendServiceCompletedFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+                    if (canNotifyCustomer && notificationSettings?.customerNotifications?.serviceCompleted) {
+                        await sendServiceCompletedFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+                    }
+                    if (canNotifyCustomer && notificationSettings?.customerNotifications?.reviewRequest) {
+                        await sendReviewFlexMessage(appointment.userId, { ...appointment, id: appointmentId, appointmentId });
+                    }
 
                     // Award points
                     try {
@@ -529,11 +555,14 @@ export async function confirmAppointmentAndPaymentByAdmin(appointmentId: string,
 
         await createOrUpdateCalendarEvent(appointmentId, updatedApp);
 
-        if (currentData && currentData.userId) {
+        const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
+        const canNotifyCustomer =
+            settingsSuccess &&
+            isCustomerNotificationsEnabled(notificationSettings) &&
+            notificationSettings?.customerNotifications?.paymentInvoice;
+
+        if (currentData && currentData.userId && canNotifyCustomer) {
             await sendPaymentConfirmationFlexMessage(currentData.userId, updatedApp);
-            if (!isAdvanced) {
-                await sendAppointmentConfirmedFlexMessage(currentData.userId, updatedApp);
-            }
         }
 
         return { success: true };
@@ -559,7 +588,15 @@ export async function sendInvoiceToCustomer(appointmentId: string, auth?: AuthCo
             updatedAt: FieldValue.serverTimestamp(),
         });
 
-        await sendPaymentFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+        const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
+        const canNotifyCustomer =
+            settingsSuccess &&
+            isCustomerNotificationsEnabled(notificationSettings) &&
+            notificationSettings?.customerNotifications?.paymentInvoice;
+
+        if (canNotifyCustomer) {
+            await sendPaymentFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+        }
 
         return { success: true };
     } catch (error: any) {
@@ -586,7 +623,12 @@ export async function cancelAppointmentByAdmin(appointmentId: string, reason: st
         const appSnap = await db.collection('appointments').doc(appointmentId).get();
         if (appSnap.exists) {
             const appData = appSnap.data();
-            if (appData?.userId) {
+            const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
+            const canNotifyCustomer =
+                settingsSuccess &&
+                isCustomerNotificationsEnabled(notificationSettings) &&
+                notificationSettings?.customerNotifications?.appointmentCancelled;
+            if (appData?.userId && canNotifyCustomer) {
                 await sendAppointmentCancelledFlexMessage(appData.userId, { id: appointmentId, ...appData }, reason);
             }
         }
@@ -616,7 +658,17 @@ export async function confirmAppointmentByUser(appointmentId: string, userId: st
             status: 'confirmed',
             updatedAt: FieldValue.serverTimestamp(),
         });
-        // Notify admin
+        try {
+            await sendBookingNotification({
+                customerName: appointment?.customerInfo?.fullName || appointment?.customerInfo?.name || 'ลูกค้า',
+                serviceName: appointment?.serviceInfo?.name || appointment?.roomTypeInfo?.name || 'บริการ',
+                appointmentDate: appointment?.date,
+                appointmentTime: appointment?.time,
+                totalPrice: appointment?.paymentInfo?.totalPrice || 0
+            }, 'customerConfirmed');
+        } catch (notificationError) {
+            console.error('Error sending customerConfirmed notification:', notificationError);
+        }
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -644,7 +696,17 @@ export async function cancelAppointmentByUser(appointmentId: string, userId: str
             cancelledBy: 'user'
         });
         await deleteCalendarEvent(appointmentId);
-        // Notify admin
+        try {
+            await sendBookingNotification({
+                customerName: appointment?.customerInfo?.fullName || appointment?.customerInfo?.name || 'ลูกค้า',
+                serviceName: appointment?.serviceInfo?.name || appointment?.roomTypeInfo?.name || 'บริการ',
+                appointmentDate: appointment?.date,
+                appointmentTime: appointment?.time,
+                totalPrice: appointment?.paymentInfo?.totalPrice || 0
+            }, 'bookingCancelled');
+        } catch (notificationError) {
+            console.error('Error sending bookingCancelled notification:', notificationError);
+        }
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }

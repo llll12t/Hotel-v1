@@ -265,7 +265,7 @@ function ReviewContent() {
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-500">วันเวลา</span>
                                 <span className="text-gray-800 font-medium">
-                                    {new Date(appointment.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} • {appointment.time}
+                                    {new Date(appointment.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} � {appointment.time}
                                 </span>
                             </div>
                         </div>

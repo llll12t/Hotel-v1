@@ -108,7 +108,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         if (unreadCount > 0) {
             const token = await auth.currentUser?.getIdToken();
             if (!token) {
-                showToast("à¹„à¸¡à¹ˆà¸žà¸šà¸à¸²à¸£à¸¢à¸·à¸™à¸¢à¸±à¸™à¸•à¸±à¸§à¸•à¸™", "error");
+                showToast("ไม่พบการยืนยันตัวตน", "error");
                 return;
             }
             const result = await markAllNotificationsAsRead({ adminToken: token });
@@ -127,7 +127,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     const handleClearAll = async () => {
         const token = await auth.currentUser?.getIdToken();
         if (!token) {
-            showToast("à¹„à¸¡à¹ˆà¸žà¸šà¸à¸²à¸£à¸¢à¸·à¸™à¸¢à¸±à¸™à¸•à¸±à¸§à¸•à¸™", "error");
+            showToast("ไม่พบการยืนยันตัวตน", "error");
             return;
         }
         const result = await clearAllNotifications({ adminToken: token });

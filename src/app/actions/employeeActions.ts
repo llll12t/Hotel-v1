@@ -9,7 +9,8 @@ import {
 import {
     sendServiceCompletedFlexMessage,
     sendReviewFlexMessage,
-    sendPaymentConfirmationFlexMessage
+    sendPaymentConfirmationFlexMessage,
+    sendCheckInFlexMessage
 } from './lineFlexActions';
 import { awardPointsForPurchase, awardPointsForVisit } from './pointActions';
 import { findOrCreateCustomer } from './customerActions';
@@ -121,7 +122,11 @@ export async function updateAppointmentStatus(appointmentId: string, newStatus: 
                 appointmentId: appointmentId,
             };
 
-            if (newStatus === 'completed') {
+            if (newStatus === 'in_progress') {
+                if (customerNotificationsEnabled) {
+                    await sendCheckInFlexMessage(appointmentData.userId, notificationPayload);
+                }
+            } else if (newStatus === 'completed') {
                 const totalPrice = appointmentData.paymentInfo?.totalPrice || 0;
                 let totalPointsAwarded = 0;
                 if (totalPrice > 0) {

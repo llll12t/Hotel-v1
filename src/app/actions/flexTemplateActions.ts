@@ -16,5 +16,6 @@ export {
     createAppointmentCancelledFlexTemplate,
     createNewBookingFlexTemplate,
     createAppointmentReminderFlexTemplate,
-    createDailyAppointmentNotificationFlexTemplate
+    createDailyAppointmentNotificationFlexTemplate,
+    createCheckInFlexTemplate
 } from './flex/appointmentTemplates';

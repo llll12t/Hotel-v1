@@ -398,6 +398,33 @@ export default function AppointmentDetailPage() {
         } catch (err: any) { showToast(`เกิดข้อผิดพลาด: ${err.message}`, 'error'); }
     };
 
+    const handleConfirmPayment = async () => {
+        if (!appointment?.id) return;
+        setUpdating(true);
+        try {
+            const token = await getAdminToken();
+            if (!token) return;
+            const result = await confirmAppointmentAndPaymentByAdmin(
+                appointment.id,
+                'admin',
+                {
+                    amount: Number(appointment.paymentInfo?.totalPrice || 0),
+                    method: appointment.paymentInfo?.paymentMethod || 'โอนเงิน',
+                },
+                { adminToken: token }
+            );
+            if (result.success) {
+                showToast('ยืนยันการชำระเงินสำเร็จ', 'success');
+            } else {
+                showToast(`เกิดข้อผิดพลาด: ${result.error}`, 'error');
+            }
+        } catch (err: any) {
+            showToast(`เกิดข้อผิดพลาด: ${err.message}`, 'error');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     const handleStatusChange = (newStatus: string) => {
         if (!appointment || newStatus === appointment.status) return;
         setStatusChangeInfo({ newStatus, statusLabel: STATUS_OPTIONS.find(o => o.value === newStatus)?.label || newStatus });
@@ -683,7 +710,7 @@ export default function AppointmentDetailPage() {
 
                             <div className="space-y-2">
                                 {(appointment.status === 'awaiting_confirmation' || appointment.status === 'pending') && (
-                                    <button onClick={() => handleStatusChange('confirmed')} disabled={updating} className="w-full py-2.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 shadow-sm">
+                                    <button onClick={handleConfirmPayment} disabled={updating} className="w-full py-2.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 shadow-sm">
                                         ยืนยันการชำระเงิน (Confirm)
                                     </button>
                                 )}

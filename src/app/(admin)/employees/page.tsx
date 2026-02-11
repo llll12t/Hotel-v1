@@ -71,7 +71,7 @@ const ImageUploader = ({ value, onChange, color = 'blue' }: ImageUploaderProps) 
             {preview ? (
                 <div className="relative">
                     <Image src={preview} alt="" width={64} height={64} className="w-16 h-16 rounded-full object-cover border" unoptimized />
-                    <button type="button" onClick={clear} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs">×</button>
+                    <button type="button" onClick={clear} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs">�</button>
                 </div>
             ) : (
                 <div className={`w-16 h-16 rounded-full ${bgColor} border-2 border-dashed flex items-center justify-center`}>

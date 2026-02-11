@@ -13,10 +13,6 @@ export interface ShopProfile {
 }
 
 export interface NotificationSettings {
-    lineNotifications?: {
-        enabled?: boolean;
-        notifyToken?: string;
-    };
     customerNotifications?: {
         newBooking?: boolean;
         appointmentConfirmed?: boolean;

@@ -39,6 +39,120 @@ const parseDate = (value: unknown): Date | null => {
   return null;
 };
 
+const buildPaymentNotifyFlex = (params: {
+  shortBookingId: string;
+  serviceName: string;
+  totalPrice: number;
+  dueLabel: string;
+  slipNote?: string;
+}) => {
+  const { shortBookingId, serviceName, totalPrice, dueLabel, slipNote } = params;
+  const amountLabel = `${totalPrice.toLocaleString("th-TH")} บาท`;
+
+  return {
+    type: "flex",
+    altText: `แจ้งชำระเงินแล้ว ${amountLabel}`,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      header: {
+        type: "box",
+        layout: "vertical",
+        paddingAll: "16px",
+        backgroundColor: "#1f1f22",
+        contents: [
+          {
+            type: "text",
+            text: "แจ้งชำระเงินแล้ว",
+            color: "#FFFFFF",
+            weight: "bold",
+            size: "md",
+          },
+          {
+            type: "text",
+            text: `รหัสการจอง ${shortBookingId}`,
+            color: "#D4D4D8",
+            size: "xs",
+            margin: "sm",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "baseline",
+                contents: [
+                  { type: "text", text: "บริการ", size: "sm", color: "#71717A", flex: 3 },
+                  { type: "text", text: serviceName || "-", size: "sm", color: "#111827", wrap: true, align: "end", flex: 7 },
+                ],
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                contents: [
+                  { type: "text", text: "กำหนดชำระ", size: "sm", color: "#71717A", flex: 3 },
+                  { type: "text", text: dueLabel, size: "sm", color: "#111827", wrap: true, align: "end", flex: 7 },
+                ],
+              },
+            ],
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: "#F4F4F5",
+            cornerRadius: "10px",
+            paddingAll: "12px",
+            contents: [
+              {
+                type: "text",
+                text: "ยอดชำระ",
+                size: "xs",
+                color: "#71717A",
+              },
+              {
+                type: "text",
+                text: amountLabel,
+                size: "lg",
+                weight: "bold",
+                color: "#111827",
+                margin: "xs",
+              },
+            ],
+          },
+          ...(slipNote
+            ? [
+                {
+                  type: "text",
+                  text: `หมายเหตุ: ${slipNote}`,
+                  size: "xs",
+                  color: "#52525B",
+                  wrap: true,
+                },
+              ]
+            : []),
+          {
+            type: "text",
+            text: "ส่งสลิปเรียบร้อยแล้ว กรุณารอเจ้าหน้าที่ตรวจสอบ",
+            size: "xs",
+            color: "#3F3F46",
+            wrap: true,
+          },
+        ],
+      },
+    },
+  };
+};
+
 function PaymentContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -155,14 +269,14 @@ function PaymentContent() {
       }
 
       if (liff && typeof liff.isInClient === "function" && liff.isInClient()) {
-        const text = [
-          "แจ้งชำระเงินแล้ว",
-          `รหัสการจอง: ${shortBookingId}`,
-          `บริการ: ${serviceName}`,
-          `ยอดชำระ: ${totalPrice.toLocaleString()} บาท`,
-          "ส่งสลิปเรียบร้อยแล้ว",
-        ].join("\n");
-        await liff.sendMessages([{ type: "text", text } as unknown as object]);
+        const flexMessage = buildPaymentNotifyFlex({
+          shortBookingId,
+          serviceName,
+          totalPrice,
+          dueLabel,
+          slipNote: slipNote.trim(),
+        });
+        await liff.sendMessages([flexMessage as unknown as object]);
       }
 
       setNoticeSent(true);

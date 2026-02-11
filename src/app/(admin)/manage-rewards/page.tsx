@@ -42,7 +42,7 @@ function AddRewardModal({ open, onClose, onSave, currencySymbol }: AddRewardModa
         try {
             const token = await auth.currentUser?.getIdToken();
             if (!token) {
-                showToast('à¹„à¸¡à¹ˆà¸žà¸šà¸à¸²à¸£à¸¢à¸·à¸™à¸¢à¸±à¸™à¸•à¸±à¸§à¸•à¸™', 'error');
+                showToast('ไม่พบการยืนยันตัวตน', 'error');
                 setSaving(false);
                 return;
             }

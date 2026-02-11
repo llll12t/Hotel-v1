@@ -293,7 +293,7 @@ export async function createAppointmentCancelledFlexTemplate(appointmentData: an
     const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
     const serviceName = formatServiceName(serviceInfo);
     const safeId = (id || '').toString();
-    const shortId = safeId ? safeId.substring(0, 8).toUpperCase() : '—';
+    const shortId = safeId ? safeId.substring(0, 8).toUpperCase() : '�';
     const appointmentDate = new Date(date).toLocaleDateString('th-TH', {
         day: '2-digit',
         month: 'short',
@@ -433,4 +433,120 @@ export async function createDailyAppointmentNotificationFlexTemplate(appointment
         altText: "Daily Notification",
         contents: { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } }
     }
+}
+
+export async function createCheckInFlexTemplate(appointmentData: any) {
+    const { customerInfo, bookingInfo, roomTypeInfo, serviceInfo } = appointmentData;
+    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
+    const roomName = roomTypeInfo?.name || serviceInfo?.name || 'ห้องพัก';
+    const roomNumber = bookingInfo?.roomNumber || '-';
+    const checkInDate = bookingInfo?.checkInDate || appointmentData?.date || '-';
+    const checkOutDate = bookingInfo?.checkOutDate || '-';
+
+    const { profile } = await getShopProfile();
+    const storeName = profile?.storeName || 'โรงแรมของเรา';
+    const contactPhone = profile?.contactPhone || '-';
+    const address = profile?.address || '-';
+
+    return {
+        type: "flex",
+        altText: "เช็คอินสำเร็จ",
+        contents: {
+            type: "bubble",
+            size: "mega",
+            body: {
+                type: "box",
+                layout: "vertical",
+                spacing: "md",
+                paddingAll: "20px",
+                contents: [
+                    {
+                        type: "text",
+                        text: "เช็คอินสำเร็จ",
+                        weight: "bold",
+                        size: "md",
+                        color: "#2563EB",
+                        align: "center"
+                    },
+                    {
+                        type: "separator",
+                        margin: "sm",
+                        color: "#2563EB"
+                    },
+                    {
+                        type: "text",
+                        text: `เรียน ${customerName}`,
+                        weight: "bold",
+                        size: "md",
+                        color: "#333333",
+                        margin: "md"
+                    },
+                    {
+                        type: "text",
+                        text: "ยินดีต้อนรับเข้าพัก ข้อมูลการเข้าพักของคุณดังนี้",
+                        size: "sm",
+                        color: "#666666",
+                        wrap: true
+                    },
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        spacing: "sm",
+                        margin: "md",
+                        paddingAll: "12px",
+                        backgroundColor: "#F8FAFC",
+                        cornerRadius: "8px",
+                        contents: [
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 2 },
+                                    { type: "text", text: roomName, size: "sm", color: "#111827", flex: 3, align: "end", wrap: true }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: "เลขห้อง", size: "sm", color: "#666666", flex: 2 },
+                                    { type: "text", text: String(roomNumber), size: "sm", color: "#111827", flex: 3, align: "end" }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: "วันที่เข้าพัก", size: "sm", color: "#666666", flex: 2 },
+                                    { type: "text", text: String(checkInDate), size: "sm", color: "#111827", flex: 3, align: "end" }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: "วันที่เช็คเอาท์", size: "sm", color: "#666666", flex: 2 },
+                                    { type: "text", text: String(checkOutDate), size: "sm", color: "#111827", flex: 3, align: "end" }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        spacing: "xs",
+                        margin: "md",
+                        paddingAll: "12px",
+                        backgroundColor: "#EEF2FF",
+                        cornerRadius: "8px",
+                        contents: [
+                            { type: "text", text: storeName, size: "sm", weight: "bold", color: "#1F2937", wrap: true },
+                            { type: "text", text: `โทร: ${contactPhone}`, size: "sm", color: "#374151", wrap: true },
+                            { type: "text", text: address, size: "sm", color: "#374151", wrap: true }
+                        ]
+                    }
+                ]
+            }
+        }
+    };
 }

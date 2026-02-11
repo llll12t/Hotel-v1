@@ -3,8 +3,18 @@ import { db } from '@/app/lib/firebaseAdmin';
 import { sendDailyAppointmentNotificationFlexMessage } from '@/app/actions/lineFlexActions';
 import { requireApiKey } from '@/app/lib/apiAuth';
 
+// Temporary hard switch: disable daily appointment notifications.
+const ENABLE_DAILY_APPOINTMENT_NOTIFICATION = false;
+
 export async function GET(request: NextRequest) {
     try {
+        if (!ENABLE_DAILY_APPOINTMENT_NOTIFICATION) {
+            return NextResponse.json({
+                success: true,
+                message: 'Daily appointment notification is temporarily disabled'
+            });
+        }
+
         const auth = requireApiKey(request, 'CRON_SECRET');
         if (!auth.ok) return auth.response;
 

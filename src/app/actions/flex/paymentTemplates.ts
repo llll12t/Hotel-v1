@@ -10,7 +10,7 @@ export async function createPaymentFlexTemplate(appointmentData: any) {
     const serviceName = formatServiceName(serviceInfo);
 
     const safeId = (id || appointmentId || '').toString();
-    const shortId = safeId ? safeId.substring(0, 8).toUpperCase() : '—';
+    const shortId = safeId ? safeId.substring(0, 8).toUpperCase() : '�';
     const appointmentDate = new Date(date).toLocaleDateString('th-TH', {
         day: '2-digit',
         month: 'short',

@@ -169,7 +169,7 @@ const ManagementModal = ({ appointment, onClose, onAction, profile }: Management
                                     <span className="text-gray-700">🔸 {opt.areaName} ({opt.optionName})</span>
                                     <div className="text-gray-500 flex items-center gap-1">
                                         {opt.duration && <span>{opt.duration} นาที</span>}
-                                        {opt.duration && opt.price && <span>•</span>}
+                                        {opt.duration && opt.price && <span>�</span>}
                                         {opt.price && <span>{Number(opt.price).toLocaleString()} {profile.currencySymbol}</span>}
                                     </div>
                                 </div>
@@ -186,7 +186,7 @@ const ManagementModal = ({ appointment, onClose, onAction, profile }: Management
                                     <span>+ {addon.name}</span>
                                     <div className="flex items-center gap-1 text-blue-600">
                                         {addon.duration && <span>{addon.duration} นาที</span>}
-                                        {addon.duration && addon.price && <span>•</span>}
+                                        {addon.duration && addon.price && <span>�</span>}
                                         {addon.price && <span>{Number(addon.price).toLocaleString()} {profile.currencySymbol}</span>}
                                     </div>
                                 </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import { db, auth } from '@/app/lib/firebase';
@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { saveProfileSettings, saveNotificationSettings, saveBookingSettings, savePointSettings, savePaymentSettings, saveCalendarSettings } from '@/app/actions/settingsActions';
 import { sendDailyNotificationsNow } from '@/app/actions/dailyNotificationActions';
 import { testAllIndexes, IndexStatus } from '@/app/actions/indexActions';
+import { cleanupPaymentSlipsOlderThanMonthsForAdmin, getPaymentSlipStorageStatsForAdmin } from '@/app/actions/paymentSlipActions';
 import { useToast } from '@/app/components/Toast';
 
 // ============ UI COMPONENTS ============
@@ -54,10 +55,15 @@ const Radio = ({ label, value, selected, onChange }: { label: string, value: str
 
 // ============ MAIN PAGE ============
 export default function SettingsPage() {
+    const [slipStats, setSlipStats] = useState<any>(null);
+    const [loadingSlipStats, setLoadingSlipStats] = useState(false);
+    const [cleaningMonths, setCleaningMonths] = useState<number | null>(null);
+    const [firestorePlan, setFirestorePlan] = useState<'spark' | 'blaze'>('spark');
+    const [storageQuotaMB, setStorageQuotaMB] = useState<number>(1024);
     const [settings, setSettings] = useState<any>({
         allNotifications: { enabled: true },
         adminNotifications: { enabled: true, newBooking: true, bookingCancelled: true, paymentReceived: true, customerConfirmed: true },
-        customerNotifications: { enabled: true, newBooking: true, appointmentConfirmed: true, serviceCompleted: true, appointmentCancelled: true, appointmentReminder: true, reviewRequest: true, paymentInvoice: true, dailyAppointmentNotification: true },
+        customerNotifications: { enabled: true, newBooking: true, appointmentConfirmed: true, serviceCompleted: true, appointmentCancelled: true, appointmentReminder: false, reviewRequest: true, paymentInvoice: true, dailyAppointmentNotification: false },
     });
 
     // Updated Booking Settings for HOTEL (Removed Technician/Queue stuff)
@@ -195,10 +201,65 @@ export default function SettingsPage() {
         setIsCheckingIndexes(false);
     };
 
+    const loadSlipStats = async () => {
+        setLoadingSlipStats(true);
+        try {
+            const token = await getAdminToken();
+            if (!token) {
+                setLoadingSlipStats(false);
+                return;
+            }
+            const result = await getPaymentSlipStorageStatsForAdmin({ adminToken: token });
+            if (result.success) {
+                setSlipStats(result.stats);
+            } else {
+                showToast(`โหลดสถิติสลิปไม่สำเร็จ: ${result.error}`, 'warning');
+            }
+        } catch (error: any) {
+            showToast(`โหลดสถิติสลิปไม่สำเร็จ: ${error.message}`, 'error');
+        } finally {
+            setLoadingSlipStats(false);
+        }
+    };
+
+    const handleCleanupSlips = async (months: 3 | 6 | 12) => {
+        setCleaningMonths(months);
+        try {
+            const token = await getAdminToken();
+            if (!token) {
+                setCleaningMonths(null);
+                return;
+            }
+            const result = await cleanupPaymentSlipsOlderThanMonthsForAdmin(months, { adminToken: token });
+            if (result.success) {
+                showToast(
+                    `ลบสลิปเก่า ${months} เดือนสำเร็จ (${result.deletedCount} รายการ, ${result.releasedMB} MB)`,
+                    'success'
+                );
+                await loadSlipStats();
+            } else {
+                showToast(`ลบข้อมูลไม่สำเร็จ: ${result.error}`, 'error');
+            }
+        } catch (error: any) {
+            showToast(`ลบข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+        } finally {
+            setCleaningMonths(null);
+        }
+    };
+
     const addHoliday = () => {
         if (!bookingSettings._newHolidayDate) return;
         setBookingSettings((prev: any) => ({ ...prev, holidayDates: [...(prev.holidayDates || []), { date: prev._newHolidayDate, reason: prev._newHolidayReason }].sort((a: any, b: any) => a.date.localeCompare(b.date)), _newHolidayDate: '', _newHolidayReason: '' }));
     };
+
+    useEffect(() => {
+        loadSlipStats();
+    }, []);
+
+    const totalUsedMB = Number(slipStats?.totalMB || 0);
+    const effectiveQuotaMB = firestorePlan === 'spark' ? 1024 : Math.max(1, Number(storageQuotaMB || 1));
+    const usedPercent = Math.max(0, Math.min(100, Number(((totalUsedMB / effectiveQuotaMB) * 100).toFixed(1))));
+    const progressColorClass = usedPercent >= 90 ? 'bg-red-500' : usedPercent >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
     if (loading) return <div className="flex justify-center items-center min-h-[400px]"><div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div></div>;
 
@@ -392,7 +453,106 @@ export default function SettingsPage() {
                     )}
                 </Card>
 
+                <Card title="จัดการพื้นที่ Firestore (สลิปชำระเงิน)">
+                    <p className="text-sm text-gray-500">
+                        แสดงการใช้งานจาก collection <code>payment_slips</code> และลบข้อมูลเก่าด้วยตนเอง
+                    </p>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">แผน Firestore</span>
+                            <select
+                                value={firestorePlan}
+                                onChange={(e) => setFirestorePlan(e.target.value as 'spark' | 'blaze')}
+                                className="rounded border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                            >
+                                <option value="spark">Spark (1 GiB)</option>
+                                <option value="blaze">Blaze (กำหนดเพดานเอง)</option>
+                            </select>
+                        </div>
+                        {firestorePlan === 'blaze' && (
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">เพดานอ้างอิงของ Blaze</span>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={storageQuotaMB}
+                                        onChange={(e) => setStorageQuotaMB(Math.max(1, Number(e.target.value) || 1))}
+                                        className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm text-gray-900"
+                                    />
+                                    <span className="text-gray-500">MB</span>
+                                </div>
+                            </div>
+                        )}
+                        <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div
+                                className={`h-full ${progressColorClass} transition-all duration-300`}
+                                style={{ width: `${usedPercent}%` }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">ใช้ไป {totalUsedMB.toFixed(2)} MB</span>
+                            <span className="font-semibold text-gray-800">{usedPercent}% ของ {effectiveQuotaMB.toLocaleString()} MB</span>
+                        </div>
+                    </div>
+
+                    {loadingSlipStats ? (
+                        <div className="text-sm text-gray-500">กำลังโหลดสถิติ...</div>
+                    ) : slipStats ? (
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">จำนวนสลิปทั้งหมด</span>
+                                <span className="font-medium text-gray-900">{slipStats.totalCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">พื้นที่รวมโดยประมาณ</span>
+                                <span className="font-medium text-gray-900">{slipStats.totalMB} MB</span>
+                            </div>
+                            <div className="rounded-md bg-gray-50 border border-gray-200 p-3 space-y-1">
+                                <div className="flex justify-between"><span className="text-gray-600">&gt; 3 เดือน</span><span className="font-medium">{slipStats.olderThan3Months?.count || 0} รายการ ({slipStats.olderThan3Months?.mb || 0} MB)</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">&gt; 6 เดือน</span><span className="font-medium">{slipStats.olderThan6Months?.count || 0} รายการ ({slipStats.olderThan6Months?.mb || 0} MB)</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">&gt; 1 ปี</span><span className="font-medium">{slipStats.olderThan12Months?.count || 0} รายการ ({slipStats.olderThan12Months?.mb || 0} MB)</span></div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-500">ยังไม่มีข้อมูลสถิติ</div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-2">
+                        <button
+                            onClick={() => handleCleanupSlips(3)}
+                            disabled={cleaningMonths !== null}
+                            className="px-3 py-2 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 disabled:bg-gray-300"
+                        >
+                            {cleaningMonths === 3 ? 'กำลังลบ...' : 'ลบสลิปเก่ากว่า 3 เดือน'}
+                        </button>
+                        <button
+                            onClick={() => handleCleanupSlips(6)}
+                            disabled={cleaningMonths !== null}
+                            className="px-3 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:bg-gray-300"
+                        >
+                            {cleaningMonths === 6 ? 'กำลังลบ...' : 'ลบสลิปเก่ากว่า 6 เดือน'}
+                        </button>
+                        <button
+                            onClick={() => handleCleanupSlips(12)}
+                            disabled={cleaningMonths !== null}
+                            className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:bg-gray-300"
+                        >
+                            {cleaningMonths === 12 ? 'กำลังลบ...' : 'ลบสลิปเก่ากว่า 1 ปี'}
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={loadSlipStats}
+                        disabled={loadingSlipStats || cleaningMonths !== null}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:bg-gray-100"
+                    >
+                        รีเฟรชสถิติ
+                    </button>
+                </Card>
+
             </div>
         </div>
     );
 }
+

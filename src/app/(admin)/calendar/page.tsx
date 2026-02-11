@@ -353,7 +353,7 @@ export default function BookingCalendarPage() {
                                                                     />
                                                                 )}
                                                                 <span className="text-[11px] font-semibold text-white truncate px-2 relative z-10 drop-shadow-sm">
-                                                                    {guestName || '—'}
+                                                                    {guestName || '�'}
                                                                 </span>
                                                             </div>
                                                         );

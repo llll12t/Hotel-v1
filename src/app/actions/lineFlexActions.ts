@@ -10,7 +10,8 @@ import {
     createPaymentConfirmationFlexTemplate,
     createReviewThankYouFlexTemplate,
     createAppointmentReminderFlexTemplate,
-    createDailyAppointmentNotificationFlexTemplate
+    createDailyAppointmentNotificationFlexTemplate,
+    createCheckInFlexTemplate
 } from './flexTemplateActions';
 
 /**
@@ -101,4 +102,9 @@ export async function sendAppointmentReminderFlexMessage(userId: string, booking
 export async function sendDailyAppointmentNotificationFlexMessage(userId: string, appointmentData: any) {
     const flexTemplate = await createDailyAppointmentNotificationFlexTemplate(appointmentData);
     return sendFlexMessage(userId, flexTemplate, 'Daily Appointment Notification');
+}
+
+export async function sendCheckInFlexMessage(userId: string, appointmentData: any) {
+    const flexTemplate = await createCheckInFlexTemplate(appointmentData);
+    return sendFlexMessage(userId, flexTemplate, 'Check-in');
 }

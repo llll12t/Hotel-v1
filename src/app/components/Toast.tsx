@@ -131,7 +131,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                     >
                         <div className="flex justify-between items-start">
                             <p className="text-sm font-medium">{toast.message}</p>
-                            <button onClick={(e) => { e.stopPropagation(); removeToast(toast.id); }} className="text-gray-400 hover:text-gray-600">×</button>
+                            <button onClick={(e) => { e.stopPropagation(); removeToast(toast.id); }} className="text-gray-400 hover:text-gray-600">�</button>
                         </div>
                     </div>
                 ))}

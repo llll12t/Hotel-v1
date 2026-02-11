@@ -4,12 +4,19 @@ import { db } from '@/app/lib/firebaseAdmin';
 import { sendDailyAppointmentNotificationFlexMessage } from '@/app/actions/lineFlexActions';
 import { AuthContext, requireAdminAuth } from '@/app/lib/authUtils';
 
+// Temporary hard switch: disable daily appointment notifications.
+const ENABLE_DAILY_APPOINTMENT_NOTIFICATION = false;
+
 /**
  * Sends daily appointment notifications to customers immediately (manual trigger)
  * @param {boolean} mockMode - If true, simulates sending without calling LINE API
  */
 export async function sendDailyNotificationsNow(mockMode = false, auth?: AuthContext) {
     try {
+        if (!ENABLE_DAILY_APPOINTMENT_NOTIFICATION) {
+            return { success: true, message: 'Daily appointment notification is temporarily disabled' };
+        }
+
         const adminAuth = await requireAdminAuth(auth);
         if (!adminAuth.ok) return { success: false, error: adminAuth.error };
 

@@ -3,12 +3,19 @@
 import { db } from '@/app/lib/firebaseAdmin';
 import { sendReminderNotification } from '@/app/actions/lineActions';
 
+// Temporary hard switch: disable 1-hour reminder notifications.
+const ENABLE_APPOINTMENT_REMINDER = false;
+
 /**
  * Send reminder notifications to customers 1 hour before their appointment
  * This function should be called by a cron job
  */
 export async function sendAppointmentReminders() {
     try {
+        if (!ENABLE_APPOINTMENT_REMINDER) {
+            return { success: true, message: 'Appointment reminder is temporarily disabled' };
+        }
+
         // Get current time and calculate 1 hour from now
         const now = new Date();
         const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
