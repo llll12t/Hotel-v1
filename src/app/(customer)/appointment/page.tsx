@@ -161,7 +161,7 @@ export default function AppointmentPage() {
         params.set('checkIn', checkIn);
         params.set('checkOut', checkOut);
         params.set('guests', guests.toString());
-        router.push(`/appointment/service-detail?${params.toString()}`);
+        router.push(`/appointment/select-room?${params.toString()}`);
     };
 
     if (loading) {
