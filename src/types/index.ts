@@ -171,7 +171,8 @@ export interface Customer {
     fullName: string;
     phone: string;
     email?: string;
-    lineUserId?: string;
+    userId?: string;
+    points?: number;
     createdAt?: any;
     updatedAt?: any;
 }
