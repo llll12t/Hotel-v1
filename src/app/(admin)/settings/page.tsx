@@ -59,7 +59,17 @@ export default function SettingsPage() {
         adminNotifications: { enabled: true, newBooking: true, bookingCancelled: true, paymentReceived: true, customerConfirmed: true },
         customerNotifications: { enabled: true, newBooking: true, appointmentConfirmed: true, serviceCompleted: true, appointmentCancelled: true, appointmentReminder: true, reviewRequest: true, paymentInvoice: true, dailyAppointmentNotification: true },
     });
-    const [bookingSettings, setBookingSettings] = useState<any>({ useTechnician: false, totalTechnicians: 1, bufferMinutes: 0, timeQueues: [], weeklySchedule: {}, holidayDates: [], _queueTime: '', _queueCount: '', _newHolidayDate: '', _newHolidayReason: '' });
+
+    // Updated Booking Settings for HOTEL (Removed Technician/Queue stuff)
+    const [bookingSettings, setBookingSettings] = useState<any>({
+        checkInTime: '14:00',
+        checkOutTime: '12:00',
+        weeklySchedule: {},
+        holidayDates: [],
+        _newHolidayDate: '',
+        _newHolidayReason: ''
+    });
+
     const [pointSettings, setPointSettings] = useState<any>({ reviewPoints: 5, pointsPerCurrency: 100, pointsPerVisit: 1, enableReviewPoints: true, enablePurchasePoints: false, enableVisitPoints: false });
     const [paymentSettings, setPaymentSettings] = useState<any>({ method: 'promptpay', promptPayAccount: '', qrCodeImageUrl: '', bankInfoText: '' });
     const [calendarSettings, setCalendarSettings] = useState<any>({ enabled: false, calendarId: '' });
@@ -74,7 +84,7 @@ export default function SettingsPage() {
     const getAdminToken = async () => {
         const token = await auth.currentUser?.getIdToken();
         if (!token) {
-            showToast("à¹„à¸¡à¹ˆà¸žà¸šà¸à¸²à¸£à¸¢à¸·à¸™à¸¢à¸±à¸™à¸•à¸±à¸§à¸•à¸™", "error");
+            showToast("ไม่พบการยืนยันตัวตน", "error");
             return null;
         }
         return token;
@@ -86,19 +96,23 @@ export default function SettingsPage() {
             try {
                 const docs = ['notifications', 'booking', 'points', 'payment', 'calendar', 'profile'];
                 const snaps = await Promise.all(docs.map(id => getDoc(doc(db, 'settings', id))));
+
                 if (snaps[0].exists()) {
                     const data = snaps[0].data() as any;
                     setSettings((prev: any) => ({ ...prev, ...data, customerNotifications: { ...prev.customerNotifications, ...data.customerNotifications } }));
                 }
+
                 if (snaps[1].exists()) {
                     const data = snaps[1].data() as any;
+                    // Standardize booking settings
                     setBookingSettings((prev: any) => ({
                         ...prev,
                         ...data,
-                        useTechnician: data.useTechnician ?? data.useBeautician ?? false,
-                        totalTechnicians: data.totalTechnicians ?? data.totalBeauticians ?? 1,
+                        checkInTime: data.checkInTime || '14:00',
+                        checkOutTime: data.checkOutTime || '12:00',
                     }));
                 }
+
                 if (snaps[2].exists()) setPointSettings((prev: any) => ({ ...prev, ...snaps[2].data() as any }));
                 if (snaps[3].exists()) setPaymentSettings((prev: any) => ({ ...prev, ...snaps[3].data() as any }));
                 if (snaps[4].exists()) setCalendarSettings((prev: any) => ({ ...prev, ...snaps[4].data() as any }));
@@ -112,7 +126,6 @@ export default function SettingsPage() {
     const handleNotifChange = (group: string, key: string, value: boolean) => {
         setSettings((prev: any) => {
             const newSettings = { ...prev, [group]: { ...prev[group], [key]: value } };
-            // Cascade disable if strict
             if (group === 'allNotifications' && key === 'enabled' && !value) {
                 newSettings.adminNotifications.enabled = false;
                 newSettings.customerNotifications.enabled = false;
@@ -129,15 +142,11 @@ export default function SettingsPage() {
                 setIsSaving(false);
                 return;
             }
-            // Prepare clean data (exclude updatedAt to avoid circular/type issue and re-fresh timestamp in action)
             const { updatedAt: _p, ...cleanProfile } = profileSettings;
             const { updatedAt: _n, ...cleanNotif } = settings;
             const { updatedAt: _b, ...cleanBooking } = bookingSettings;
-            const normalizedBooking = {
-                ...cleanBooking,
-                useTechnician: cleanBooking.useTechnician ?? cleanBooking.useBeautician ?? false,
-                totalTechnicians: cleanBooking.totalTechnicians ?? cleanBooking.totalBeauticians ?? 1,
-            };
+            // Removed legacy fields normalizations
+
             const { updatedAt: _pt, ...cleanPoints } = pointSettings;
             const { updatedAt: _pm, ...cleanPayment } = paymentSettings;
             const { updatedAt: _c, ...cleanCalendar } = calendarSettings;
@@ -145,7 +154,7 @@ export default function SettingsPage() {
             const results = await Promise.all([
                 saveProfileSettings(cleanProfile, { adminToken: token }),
                 saveNotificationSettings(cleanNotif, { adminToken: token }),
-                saveBookingSettings(normalizedBooking, { adminToken: token }),
+                saveBookingSettings(cleanBooking, { adminToken: token }),
                 savePointSettings(cleanPoints, { adminToken: token }),
                 savePaymentSettings(cleanPayment, { adminToken: token }),
                 saveCalendarSettings(cleanCalendar, { adminToken: token })
@@ -186,11 +195,6 @@ export default function SettingsPage() {
         setIsCheckingIndexes(false);
     };
 
-    const addTimeQueue = () => {
-        if (!bookingSettings._queueTime || !bookingSettings._queueCount) return;
-        setBookingSettings((prev: any) => ({ ...prev, timeQueues: [...(prev.timeQueues || []), { time: prev._queueTime, count: parseInt(prev._queueCount) }].sort((a: any, b: any) => a.time.localeCompare(b.time)), _queueTime: '', _queueCount: '' }));
-    };
-
     const addHoliday = () => {
         if (!bookingSettings._newHolidayDate) return;
         setBookingSettings((prev: any) => ({ ...prev, holidayDates: [...(prev.holidayDates || []), { date: prev._newHolidayDate, reason: prev._newHolidayReason }].sort((a: any, b: any) => a.date.localeCompare(b.date)), _newHolidayDate: '', _newHolidayReason: '' }));
@@ -204,7 +208,7 @@ export default function SettingsPage() {
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900">ตั้งค่าระบบ</h1>
-                    <p className="text-sm text-gray-500">จัดการการตั้งค่าทั้งหมดของร้าน</p>
+                    <p className="text-sm text-gray-500">จัดการการตั้งค่าทั้งหมดของโรงแรม</p>
                 </div>
                 <button onClick={handleSave} disabled={isSaving} className="px-5 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:bg-gray-400">
                     {isSaving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
@@ -214,9 +218,9 @@ export default function SettingsPage() {
             {/* Cards Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
-                {/* ข้อมูลร้าน */}
-                <Card title="ข้อมูลร้าน">
-                    <Input label="ชื่อร้าน" value={profileSettings.storeName} onChange={(e: any) => setProfileSettings({ ...profileSettings, storeName: e.target.value })} />
+                {/* ข้อมูลโรงแรม */}
+                <Card title="ข้อมูลโรงแรม">
+                    <Input label="ชื่อโรงแรม" value={profileSettings.storeName} onChange={(e: any) => setProfileSettings({ ...profileSettings, storeName: e.target.value })} />
                     <Input label="เบอร์โทรติดต่อ" type="tel" value={profileSettings.contactPhone} onChange={(e: any) => setProfileSettings({ ...profileSettings, contactPhone: e.target.value })} />
                     <TextArea label="ที่อยู่" rows={2} value={profileSettings.address} onChange={(e: any) => setProfileSettings({ ...profileSettings, address: e.target.value })} />
                     <div className="grid grid-cols-2 gap-3">
@@ -225,33 +229,18 @@ export default function SettingsPage() {
                     </div>
                 </Card>
 
-                {/* โหมดการจอง */}
-                <Card title="โหมดการจอง">
-                    <Toggle label="โหมดเลือกช่าง" checked={bookingSettings.useTechnician} onChange={v => setBookingSettings((p: any) => ({ ...p, useTechnician: v }))} />
-                    <Input label={bookingSettings.useTechnician ? 'จำนวนช่างทั้งหมด' : 'จำนวนคิวสูงสุด'} type="number" value={bookingSettings.totalTechnicians} onChange={(e: any) => setBookingSettings((p: any) => ({ ...p, totalTechnicians: parseInt(e.target.value) || 1 }))} />
-                    <Input label="Buffer (นาที) ระหว่างคิว" type="number" value={bookingSettings.bufferMinutes} onChange={(e: any) => setBookingSettings((p: any) => ({ ...p, bufferMinutes: Number(e.target.value) }))} />
-
-                    <div className="pt-3 border-t">
-                        <label className="block text-sm text-gray-600 mb-2">กำหนดคิวตามเวลา</label>
-                        <div className="flex gap-2">
-                            <input type="time" value={bookingSettings._queueTime} onChange={e => setBookingSettings((p: any) => ({ ...p, _queueTime: e.target.value }))} className="flex-1 px-2 py-1.5 border rounded text-sm text-gray-900" />
-                            <input type="number" value={bookingSettings._queueCount} onChange={e => setBookingSettings((p: any) => ({ ...p, _queueCount: e.target.value }))} placeholder="จำนวน" className="w-16 px-2 py-1.5 border rounded text-sm text-gray-900" />
-                            <button onClick={addTimeQueue} disabled={!bookingSettings._queueTime || !bookingSettings._queueCount} className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:bg-gray-300">+</button>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                            {(bookingSettings.timeQueues || []).map((q: any) => (
-                                <span key={q.time} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-xs">
-                                    {q.time} ({q.count}) <button onClick={() => setBookingSettings((p: any) => ({ ...p, timeQueues: p.timeQueues.filter((x: any) => x.time !== q.time) }))} className="text-gray-400 hover:text-gray-600">×</button>
-                                </span>
-                            ))}
-                        </div>
+                {/* นโยบายการเข้าพัก */}
+                <Card title="นโยบายการเข้าพัก">
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input type="time" label="เวลาเช็คอิน (Check-in)" value={bookingSettings.checkInTime} onChange={(e: any) => setBookingSettings((p: any) => ({ ...p, checkInTime: e.target.value }))} />
+                        <Input type="time" label="เวลาเช็คเอาท์ (Check-out)" value={bookingSettings.checkOutTime} onChange={(e: any) => setBookingSettings((p: any) => ({ ...p, checkOutTime: e.target.value }))} />
                     </div>
                 </Card>
 
-                {/* เวลาทำการ */}
+                {/* เวลาทำการ Front Desk (Optional) */}
                 <Card title="เวลาทำการ">
                     {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((name, idx) => {
-                        const day = bookingSettings.weeklySchedule?.[idx] || { isOpen: false, openTime: '09:00', closeTime: '18:00' };
+                        const day = bookingSettings.weeklySchedule?.[idx] || { isOpen: true, openTime: '00:00', closeTime: '23:59' };
                         return (
                             <div key={idx} className="flex items-center justify-between py-1">
                                 <div className="flex items-center gap-2">

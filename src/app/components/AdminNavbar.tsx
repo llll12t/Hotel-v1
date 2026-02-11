@@ -50,7 +50,7 @@ const navLinks: NavLinkConfig[] = [
     {
         name: "ข้อมูลหลัก",
         items: [
-            { name: "จองห้องพัก", href: "/create-booking" },
+            { name: "จองห้องพัก", href: "/appointments/create" },
             { name: "ประเภทห้องพัก", href: "/room-types" },
             { name: "ห้องพัก", href: "/rooms" },
             { name: "แขก", href: "/customers" },
@@ -172,8 +172,7 @@ export default function AdminNavbar({ notifications = [], unreadCount = 0, onMar
                         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-md">
                             {isMobileMenuOpen ? <Icons.Close /> : <Icons.Menu />}
                         </button>
-                        <Link href="/dashboard" className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center font-bold">A</span>
+                        <Link href="/dashboard" className="text-lg font-semibold text-gray-900 flex items-center gap-2 p-2">
                             Admin Panel
                         </Link>
                     </div>

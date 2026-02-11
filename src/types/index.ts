@@ -55,9 +55,36 @@ export interface Service {
     updatedAt?: any;
 }
 
+export interface RoomType {
+    id: string;
+    name: string;
+    description?: string;
+    basePrice?: number;
+    currencySymbol?: string;
+    imageUrls?: string[];
+    maxGuests?: number;
+    sizeSqM?: number;
+    amenities?: string[];
+    status?: 'available' | 'full' | 'unavailable';
+    createdAt?: any;
+    updatedAt?: any;
+}
+
+
+export interface Room {
+    id: string;
+    number: string;
+    roomTypeId: string;
+    floor?: number;
+    status?: 'available' | 'occupied' | 'maintenance' | 'cleaning';
+    notes?: string;
+    createdAt?: any;
+    updatedAt?: any;
+}
 export interface Appointment {
     id: string;
     status: 'awaiting_confirmation' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'pending' | 'blocked';
+    bookingType?: 'service' | 'room';
     queue?: string | number;
     queueNumber?: string | number;
     customerInfo: {
@@ -77,6 +104,7 @@ export interface Appointment {
         // Extended properties
         serviceType?: string;
         selectedOptionName?: string;
+        selectedOptionPrice?: number;
         selectedOptionDuration?: number;
         selectedAreas?: string[];
         selectedAreaOptions?: any[];
@@ -89,7 +117,22 @@ export interface Appointment {
         addOns?: any[];
         technicianName?: string;
     };
+    bookingInfo?: {
+        roomTypeId?: string;
+        roomId?: string | null;
+        checkInDate?: string;
+        checkOutDate?: string;
+        nights?: number;
+        rooms?: number;
+        guests?: number | null;
+    };
+    roomTypeInfo?: {
+        id?: string;
+        name?: string;
+        imageUrl?: string | null;
+    };
     paymentInfo?: {
+        basePrice?: number;
         totalPrice?: number;
         originalPrice?: number;
         amountPaid?: number;
@@ -99,6 +142,7 @@ export interface Appointment {
         paymentStatus?: 'paid' | 'unpaid' | 'invoiced' | 'pending';
         paymentMethod?: string;
         paidAt?: any;
+        paymentDueAt?: any;
     };
     addOns?: any[];
     date?: any;

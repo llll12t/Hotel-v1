@@ -20,7 +20,37 @@ import * as settingsActions from './settingsActions';
 import { Appointment, Service } from '@/types';
 import { AuthContext, requireAdminAuth, requireLineAuth } from '@/app/lib/authUtils';
 
-// ... (Existing functions like createAppointmentWithSlotCheck) ...
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const getBangkokDateParts = (date: Date) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(date);
+    const year = Number(parts.find(p => p.type === 'year')?.value || 0);
+    const month = Number(parts.find(p => p.type === 'month')?.value || 0);
+    const day = Number(parts.find(p => p.type === 'day')?.value || 0);
+    return { year, month, day };
+};
+
+const getBangkokEndOfDay = (date = new Date()) => {
+    const { year, month, day } = getBangkokDateParts(date);
+    const utcMillis = Date.UTC(year, month - 1, day, 23, 59, 59, 999) - BANGKOK_OFFSET_MS;
+    return new Date(utcMillis);
+};
+
+const toDateSafe = (value: any) => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value?.toDate === 'function') return value.toDate();
+    if (typeof value === 'string' || typeof value === 'number') {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+};
 
 // Re-exporting createAppointmentWithSlotCheck for brevity (it was correct in previous step)
 export async function createAppointmentWithSlotCheck(appointmentData: any, auth?: AuthContext) {
@@ -180,8 +210,14 @@ export async function createAppointmentWithSlotCheck(appointmentData: any, auth?
 
         const totalPrice = Math.max(0, subtotal - discountAmount);
 
+        const incomingStatus = appointmentData.status;
+        const finalStatus = incomingStatus && incomingStatus !== 'awaiting_confirmation' ? incomingStatus : 'pending';
+        const paymentDueAtDate = toDateSafe(appointmentData.paymentInfo?.paymentDueAt) ?? getBangkokEndOfDay();
+
         const finalAppointmentData: any = {
             ...appointmentData,
+            bookingType: 'service',
+            status: finalStatus,
             userId: resolvedUserId,
             serviceInfo: {
                 id: serviceId,
@@ -214,7 +250,8 @@ export async function createAppointmentWithSlotCheck(appointmentData: any, auth?
                 discount: discountAmount,
                 couponId: appliedCoupon?.id || null,
                 couponName: appliedCoupon?.name || null,
-                totalPrice: totalPrice
+                totalPrice: totalPrice,
+                paymentDueAt: Timestamp.fromDate(paymentDueAtDate),
             },
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
@@ -296,31 +333,70 @@ export async function createBooking(bookingData: any, auth?: AuthContext) {
         const nights = nightsParam ? Number(nightsParam) : Math.max(1, Math.round((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)) || 1);
         const roomsCount = rooms ? Number(rooms) : 1;
         const basePrice = Number(rtData.basePrice || 0);
-        const totalPrice = basePrice * nights * roomsCount;
+        const computedOriginal = basePrice * nights * roomsCount;
+        const incomingOriginal = Number(bookingData.paymentInfo?.originalPrice);
+        const incomingDiscount = Number(bookingData.paymentInfo?.discount);
+        const incomingTotal = Number(bookingData.paymentInfo?.totalPrice);
+        const originalPrice = Number.isFinite(incomingOriginal) && incomingOriginal > 0 ? incomingOriginal : computedOriginal;
+        const discount = Number.isFinite(incomingDiscount) && incomingDiscount > 0 ? Math.min(incomingDiscount, originalPrice) : 0;
+        const totalPrice = Number.isFinite(incomingTotal) && incomingTotal > 0 ? incomingTotal : Math.max(0, originalPrice - discount);
 
-        const finalBooking = {
-            ...bookingData,
-            userId: resolvedUserId,
+        const checkInDateObj = new Date(`${checkInDate}T00:00:00`);
+        const appointmentDateTime = Timestamp.fromDate(checkInDateObj);
+
+        const incomingStatus = bookingData.status;
+        const finalStatus = incomingStatus && incomingStatus !== 'awaiting_confirmation' ? incomingStatus : 'pending';
+        const paymentDueAtDate = toDateSafe(bookingData.paymentInfo?.paymentDueAt) ?? getBangkokEndOfDay();
+
+        const finalAppointment: any = {
+            ...(resolvedUserId ? { userId: resolvedUserId } : {}),
+            bookingType: 'room',
+            status: finalStatus,
+            date: checkInDate,
+            time: bookingData.time || '00:00',
+            customerInfo: bookingData.customerInfo || {},
+            serviceInfo: {
+                id: roomTypeId,
+                name: rtData.name,
+                imageUrl: rtData.imageUrls?.[0] || null,
+                duration: 0,
+                serviceType: 'room',
+            },
+            appointmentInfo: {
+                dateTime: appointmentDateTime,
+                duration: 0,
+                addOns: [],
+            },
+            bookingInfo: {
+                roomTypeId,
+                roomId: bookingData.roomId || null,
+                checkInDate,
+                checkOutDate,
+                nights,
+                rooms: roomsCount,
+                guests: bookingData.guests || null,
+            },
             roomTypeInfo: { id: roomTypeId, name: rtData.name, imageUrl: rtData.imageUrls?.[0] || null },
-            nights,
-            rooms: roomsCount,
             paymentInfo: {
                 ...(bookingData.paymentInfo || {}),
                 basePrice,
+                originalPrice,
+                discount,
                 totalPrice,
-                paymentStatus: bookingData.paymentInfo?.paymentStatus || 'unpaid'
+                paymentStatus: bookingData.paymentInfo?.paymentStatus || 'unpaid',
+                paymentDueAt: Timestamp.fromDate(paymentDueAtDate),
             },
-            status: bookingData.status || 'awaiting_confirmation',
+            createdBy: bookingData.createdBy || null,
             createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp()
+            updatedAt: FieldValue.serverTimestamp(),
         };
 
-        const newRef = db.collection('bookings').doc();
-        await newRef.set(finalBooking);
+        const newRef = db.collection('appointments').doc();
+        await newRef.set(finalAppointment);
 
         try {
             await sendBookingNotification({
-                customerName: finalBooking.customerInfo?.fullName || '',
+                customerName: finalAppointment.customerInfo?.fullName || '',
                 roomType: rtData.name,
                 checkIn: checkInDate,
                 checkOut: checkOutDate,
@@ -387,8 +463,15 @@ export async function confirmAppointmentAndPaymentByAdmin(appointmentId: string,
         const adminAuth = await requireAdminAuth(auth);
         if (!adminAuth.ok) return { success: false, error: adminAuth.error };
 
-        const updateData = {
-            status: 'confirmed',
+        const appRef = db.collection('appointments').doc(appointmentId);
+        const appSnap = await appRef.get();
+        if (!appSnap.exists) return { success: false, error: 'Appointment not found' };
+
+        const currentData = appSnap.data();
+        const currentStatus = currentData?.status;
+        const isAdvanced = currentStatus === 'in_progress' || currentStatus === 'completed';
+
+        const updateData: any = {
             'paymentInfo.paymentStatus': 'paid',
             'paymentInfo.paymentMethod': data.method,
             'paymentInfo.amountPaid': data.amount,
@@ -396,20 +479,23 @@ export async function confirmAppointmentAndPaymentByAdmin(appointmentId: string,
             updatedAt: FieldValue.serverTimestamp(),
         };
 
-        await db.collection('appointments').doc(appointmentId).update(updateData);
+        if (!isAdvanced) {
+            updateData.status = 'confirmed';
+        }
 
-        const appSnap = await db.collection('appointments').doc(appointmentId).get();
-        if (appSnap.exists) {
-            const appointment = appSnap.data();
-            await createOrUpdateCalendarEvent(appointmentId, { ...appointment, status: 'confirmed', paymentInfo: { ...appointment?.paymentInfo, paymentStatus: 'paid' } } as any);
+        await appRef.update(updateData);
 
-            if (appointment && appointment.userId) {
-                // Determine if we should send message about payment or appointment confirmation
-                // Generally appointment confirmed
-                await sendPaymentConfirmationFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
-                await sendAppointmentConfirmedFlexMessage(appointment.userId, { ...appointment, id: appointmentId });
+        const updatedApp = { ...currentData, ...updateData, id: appointmentId };
+
+        await createOrUpdateCalendarEvent(appointmentId, updatedApp);
+
+        if (currentData && currentData.userId) {
+            await sendPaymentConfirmationFlexMessage(currentData.userId, updatedApp);
+            if (!isAdvanced) {
+                await sendAppointmentConfirmedFlexMessage(currentData.userId, updatedApp);
             }
         }
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -521,11 +607,4 @@ export async function cancelAppointmentByUser(appointmentId: string, userId: str
         // Notify admin
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function findAppointmentsByPhone(phoneNumber: string) {
-    try {
-        const snap = await db.collection('appointments').where('customerInfo.phone', '==', phoneNumber).orderBy('createdAt', 'desc').get();
-        return { success: true, appointments: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
-    } catch (e: any) { return { success: false, error: e.message, appointments: [] }; }
 }

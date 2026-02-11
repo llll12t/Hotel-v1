@@ -1,69 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  /* === Customer Theme (Relaxing Dark Brown) === */
-  /* Primary Colors - Deep Coffee / Warm Earth */
-  --primary-light: #F5F2ED;
-  /* Warm Beige Background */
-  --primary: #5D4037;
-  /* Mocha Brown */
-  --primary-dark: #3E2723;
-  /* Deep Espresso */
+  /* === Hotel Modern Theme (Image Based) === */
+  /* Brand Colors */
+  --primary: #FF754B;
+  /* Vibrant Orange */
+  --primary-dark: #E66A43;
+  /* Darker Orange */
+  --primary-light: #FF8F6B;
+  /* Light Orange */
 
-  /* Secondary & Accent */
-  --secondary: #D7CCC8;
-  /* Soft Taupe */
-  --accent: #8D6E63;
-  /* Cocoa Accent */
+  /* Backgrounds */
+  --background: #F6F6F6;
+  /* Light Page Background */
+  --card: #FFFFFF;
+  /* White Cards/Inputs */
+  --foreground: #232227;
+  /* Dark Text Main */
 
   /* Text Colors */
-  --text: #3E2723;
-  /* Dark Brown Text */
-  --text-muted: #5D4037;
-  /* Muted Brown */
-  --subtext: #8D6E63;
-  /* Helper Text */
+  --text: #232227;
+  /* Primary Dark Text */
+  --text-muted: #9CA3AF;
+  /* Muted Text */
+  --text-inverted: #FFFFFF;
+  /* Text on dark backgrounds */
 
-  /* Border */
-  --border: #D7CCC8;
-  /* Soft Brown Border */
-  --border-dark: #A1887F;
-  /* Darker Border */
+  /* Secondary & Accents */
+  --secondary: #232227;
+  /* Dark Block Background */
+  --accent: #FF754B;
+  /* Accent */
+
+  /* Component Specific */
+  --input-bg: #FFFFFF;
+  --placeholder-bg: #E5E5E5;
+
+  /* Borders */
+  --border: #E5E5E5;
+  /* Light Grey Border */
+  --border-dark: #D1D5DB;
+  /* Medium Grey Border */
 
   /* Status Colors */
-  --success: #388E3C;
-  --error: #D32F2F;
-  --warning: #FBC02D;
-  --info: #1976D2;
-
-  /* Background */
-  --background: #FAF9F6;
-  /* Off-white Cream */
-  --foreground: var(--text);
-  --card: #FFFFFF;
+  --success: #10B981;
+  --error: #EF4444;
+  --warning: #F59E0B;
+  --info: #3B82F6;
 
   /* Button Colors */
-  --btn-primary: #4A3728;
-  /* Coffee Bean */
-  --btn-primary-hover: #3E2723;
-  /* Darker Coffee */
-  --btn-secondary: #F5F2ED;
-  /* Beige */
-  --btn-secondary-hover: #EFEBE9;
-  --btn-danger: #C62828;
-  --btn-danger-hover: #B71C1C;
+  --btn-primary: #FF754B;
+  --btn-primary-hover: #E66A43;
+  --btn-secondary: #232227;
+  --btn-secondary-hover: #1F1E22;
 }
 
-
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #f8f8f8;
-    --foreground: #000000;
-    --card: #1f2937;
-    --border: #374151;
-  }
-}
 
 /* === Admin Theme (Clear + Formal) === */
 .admin-theme {
@@ -287,4 +278,20 @@ body {
       rgba(255, 255, 255, 0.8),
       transparent,
       rgba(255, 255, 255, 0.3));
+}
+
+/* Custom Thin Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 8px; /* Horizontal scrollbar height */
+  width: 8px; /* Vertical scrollbar width */
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
 }

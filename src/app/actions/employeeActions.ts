@@ -23,6 +23,15 @@ const getNotificationSettings = async () => {
 };
 
 const requireEmployeeAuth = async (auth?: AuthContext) => {
+    // 1. Check Admin Auth first (allow admins to act as employees)
+    if (auth?.adminToken) {
+        const adminCheck = await requireAdminAuth(auth);
+        if (adminCheck.ok && adminCheck.value) {
+            return { ok: true, employeeId: adminCheck.value.uid || 'admin', lineUserId: 'admin' };
+        }
+    }
+
+    // 2. Check LINE Auth
     const lineAuth = await requireLineAuth(auth);
     if (!lineAuth.ok) return { ok: false, error: lineAuth.error };
     const lineUserId = lineAuth.value.userId;

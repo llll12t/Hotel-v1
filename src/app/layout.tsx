@@ -18,8 +18,8 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "Spa & Massage Booking System",
-  description: "ระบบจองบริการสปา",
+  title: "Booking System",
+  description: "ระบบจองห้องพัก",
 };
 
 export const viewport: Viewport = {

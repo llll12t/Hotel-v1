@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import { auth } from '@/app/lib/firebase';
 import { useLiffContext } from '@/context/LiffProvider';
 import { findAppointmentsByPhone, findAppointmentById } from '@/app/actions/employeeActions';
 import EmployeeHeader from '@/app/components/EmployeeHeader';
@@ -28,13 +29,16 @@ export default function CheckInPage() {
         setLoading(true);
         setMessage('');
         setAppointments([]);
+
         const lineAccessToken = liff?.getAccessToken?.();
-        const result = await findAppointmentsByPhone(sanitizedPhoneNumber, { lineAccessToken });
+        const adminToken = await auth.currentUser?.getIdToken();
+
+        const result = await findAppointmentsByPhone(sanitizedPhoneNumber, { lineAccessToken, adminToken });
         if (result.success) {
             if (result.appointments.length > 0) {
                 setAppointments(result.appointments);
             } else {
-                setMessage('ไม่พบการนัดหมายสำหรับเบอร์โทรนี้');
+                setMessage('ไม่พบการจองสำหรับเบอร์โทรนี้');
             }
         } else {
             setMessage(`เกิดข้อผิดพลาด: ${result.error}`);
@@ -43,6 +47,8 @@ export default function CheckInPage() {
     };
 
     const handleScan = async () => {
+        // Allow if LIFF is in client OR allow manual code input if strictly needed, 
+        // but scanCodeV2 definitely needs LIFF on mobile/line browser.
         if (!liff || !liff.isInClient()) {
             showToast('ฟังก์ชันสแกน QR ใช้งานได้บน LINE เท่านั้น', 'error');
             return;
@@ -53,7 +59,9 @@ export default function CheckInPage() {
                 setLoading(true);
                 setMessage('กำลังค้นหาข้อมูล...');
                 const lineAccessToken = liff?.getAccessToken?.();
-                const searchResult = await findAppointmentById(result.value, { lineAccessToken });
+                const adminToken = await auth.currentUser?.getIdToken();
+
+                const searchResult = await findAppointmentById(result.value, { lineAccessToken, adminToken });
                 if (searchResult.success) {
                     setAppointments([searchResult.appointment]);
                     setMessage('');
@@ -71,8 +79,6 @@ export default function CheckInPage() {
         router.push(`/check-in/${appointment.id}`);
     };
 
-
-
     return (
         <div className="min-h-screen bg-gray-100">
             <EmployeeHeader />
@@ -80,7 +86,7 @@ export default function CheckInPage() {
             <div className="max-w-md mx-auto p-4 space-y-6">
                 {/* Search Card */}
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">ค้นหานัดหมาย</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">ค้นหาการจองห้องพัก</h2>
                     <form onSubmit={handleSearch}>
                         <label className="block text-sm font-medium text-gray-600 mb-2">เบอร์โทรศัพท์ลูกค้า</label>
                         <div className="flex space-x-2">
@@ -118,7 +124,7 @@ export default function CheckInPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    สแกน QR Code
+                    สแกน QR Code เพื่อเช็คอิน
                 </button>
 
                 {/* Results Section */}

@@ -13,6 +13,7 @@ import { updateAppointmentStatus, updatePaymentStatusByEmployee, findAppointment
 import PaymentQrModal from '../components/PaymentQrModal';
 import EmployeeHeader from '@/app/components/EmployeeHeader';
 import { Appointment } from '@/types';
+import { auth } from '@/app/lib/firebase';
 
 export default function AppointmentManagementPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -33,11 +34,12 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
             setLoading(true);
             try {
                 const lineAccessToken = liff?.getAccessToken?.();
-                const result = await findAppointmentById(id, { lineAccessToken });
+                const adminToken = await auth.currentUser?.getIdToken();
+                const result = await findAppointmentById(id, { lineAccessToken, adminToken });
                 if (result.success && result.appointment) {
                     setAppointment(result.appointment);
                 } else {
-                    showToast('ไม่พบข้อมูลนัดหมาย', 'error');
+                    showToast('ไม่พบข้อมูลการจอง', 'error');
                     router.back();
                 }
             } catch (error) {
@@ -70,6 +72,8 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
 
     const isPaid = appointment.paymentInfo?.paymentStatus === 'paid';
     const isCheckedIn = appointment.status === 'in_progress';
+    const isCompleted = appointment.status === 'completed';
+    const isRoomBooking = appointment.bookingType === 'room';
 
     const executeConfirmAction = async () => {
         if (confirmModal.action) {
@@ -79,11 +83,14 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
     };
 
     const handleUpdatePayment = async () => {
-        if (!liffProfile?.userId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
+        const adminToken = await auth.currentUser?.getIdToken();
+        const empId = liffProfile?.userId || (adminToken ? 'admin' : '');
+
+        if (!empId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
 
         setIsUpdating(true);
         const lineAccessToken = liff?.getAccessToken?.();
-        const result = await updatePaymentStatusByEmployee(appointment.id, liffProfile.userId, { lineAccessToken });
+        const result = await updatePaymentStatusByEmployee(appointment.id, empId, { lineAccessToken, adminToken });
         if (result.success) {
             showToast('อัปเดตสถานะการชำระเงินสำเร็จ!', 'success');
             setAppointment(prev => prev ? ({ ...prev, paymentInfo: { ...prev.paymentInfo, paymentStatus: 'paid' } }) : null);
@@ -94,13 +101,16 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
     };
 
     const handleCheckIn = async () => {
-        if (!liffProfile?.userId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
+        const adminToken = await auth.currentUser?.getIdToken();
+        const empId = liffProfile?.userId || (adminToken ? 'admin' : '');
+
+        if (!empId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
 
         setIsUpdating(true);
         const lineAccessToken = liff?.getAccessToken?.();
-        const result = await updateAppointmentStatus(appointment.id, 'in_progress', liffProfile.userId, { lineAccessToken });
+        const result = await updateAppointmentStatus(appointment.id, 'in_progress', empId, { lineAccessToken, adminToken });
         if (result.success) {
-            showToast('ยืนยันการเข้ารับบริการสำเร็จ!', 'success');
+            showToast('ยืนยันลูกค้าเช็คอินสำเร็จ!', 'success');
             setAppointment(prev => prev ? ({ ...prev, status: 'in_progress' }) : null);
         } else {
             showToast(`เกิดข้อผิดพลาด: ${result.error}`, 'error');
@@ -108,17 +118,37 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
         setIsUpdating(false);
     };
 
-    const handleStatusChange = async (newStatus: any) => {
-        if (!liffProfile?.userId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
+    const handleCheckOut = async () => {
+        const adminToken = await auth.currentUser?.getIdToken();
+        const empId = liffProfile?.userId || (adminToken ? 'admin' : '');
+
+        if (!empId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
 
         setIsUpdating(true);
         const lineAccessToken = liff?.getAccessToken?.();
-        const result = await updateAppointmentStatus(appointment.id, newStatus, liffProfile.userId, { lineAccessToken });
+        const result = await updateAppointmentStatus(appointment.id, 'completed', empId, { lineAccessToken, adminToken });
+        if (result.success) {
+            showToast('ยืนยันลูกค้าเช็คเอาท์สำเร็จ!', 'success');
+            setAppointment(prev => prev ? ({ ...prev, status: 'completed' }) : null);
+        } else {
+            showToast(`เกิดข้อผิดพลาด: ${result.error}`, 'error');
+        }
+        setIsUpdating(false);
+    };
+
+    const handleStatusChange = async (newStatus: any) => {
+        const adminToken = await auth.currentUser?.getIdToken();
+        const empId = liffProfile?.userId || (adminToken ? 'admin' : '');
+
+        if (!empId) return showToast("ไม่สามารถระบุตัวตนพนักงานได้", "error");
+
+        setIsUpdating(true);
+        const lineAccessToken = liff?.getAccessToken?.();
+        const result = await updateAppointmentStatus(appointment.id, newStatus, empId, { lineAccessToken, adminToken });
         if (result.success) {
             showToast('อัปเดตสถานะสำเร็จ!', 'success');
             setAppointment(prev => prev ? ({ ...prev, status: newStatus }) : null);
             if (newStatus === 'cancelled') {
-                // Optionally redirect back after cancel
                 setTimeout(() => router.back(), 1500);
             }
         } else {
@@ -136,12 +166,12 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
         });
     };
 
-    const confirmComplete = () => {
+    const confirmCheckOut = () => {
         setConfirmModal({
             show: true,
-            title: "ยืนยันเสร็จสิ้นบริการ",
-            message: "ต้องการบันทึกว่าการบริการนี้เสร็จสิ้นแล้วใช่หรือไม่?",
-            action: async () => handleStatusChange('completed')
+            title: "ยืนยันการเช็คเอาท์",
+            message: "ต้องการบันทึกว่าลูกค้าเช็คเอาท์และคืนห้องพักแล้วใช่หรือไม่?",
+            action: handleCheckOut
         });
     };
 
@@ -149,10 +179,15 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
         setConfirmModal({
             show: true,
             title: "ยืนยันการยกเลิก",
-            message: "คุณต้องการยกเลิกนัดหมายนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้",
+            message: "คุณต้องการยกเลิกการจองนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้",
             action: async () => handleStatusChange('cancelled')
         });
     };
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return '-';
+        return format(parseISO(dateStr), 'dd MMM yyyy', { locale: th });
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 pb-safe">
@@ -160,119 +195,44 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
 
             <main className="p-4 space-y-4 max-w-lg mx-auto">
                 <div className="grid gap-4">
-                    {/* --- Appointment Info --- */}
+                    {/* --- Booking Info --- */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         {/* Customer Info */}
                         <div className="flex justify-between items-start mb-3">
                             <div>
-                                <p className="font-bold text-lg text-gray-900">{appointment.customerInfo.fullName || appointment.customerInfo.name}</p>
-                                <p className="text-sm text-gray-500">{appointment.customerInfo.phone}</p>
+                                <p className="font-bold text-lg text-gray-900">{appointment.customerInfo?.fullName || appointment.customerInfo?.name || 'ลูกค้าทั่วไป'}</p>
+                                <p className="text-sm text-gray-500">{appointment.customerInfo?.phone}</p>
                             </div>
                         </div>
 
-                        {/* Service Details */}
+                        {/* Room/Booking Details */}
                         <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                            <p className="font-semibold text-gray-800">{appointment.serviceInfo.name}</p>
-
-                            {/* Standard service - show base duration if available */}
-                            {(!appointment.serviceInfo?.serviceType || appointment.serviceInfo?.serviceType === 'standard') && (
-                                <div className="text-sm text-gray-600">
-                                    {appointment.appointmentInfo?.duration && (
-                                        <p>⏱ ระยะเวลา: {appointment.appointmentInfo.duration} นาที</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Multi-area service details */}
-                            {appointment.serviceInfo?.serviceType === 'multi-area' && (
-                                <div className="text-sm text-gray-600 space-y-1">
-                                    {appointment.serviceInfo?.selectedArea && (
-                                        <div className="flex items-center gap-1">
-                                            <span>📍</span>
-                                            <span>{appointment.serviceInfo.selectedArea.name}</span>
-                                        </div>
-                                    )}
-                                    {appointment.serviceInfo?.selectedPackage && (
-                                        <div className="flex justify-between items-center">
-                                            <span>📦 {appointment.serviceInfo.selectedPackage.name}</span>
-                                            <span className="text-gray-400">{appointment.serviceInfo.selectedPackage.duration} นาที</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Option-based service details */}
-                            {appointment.serviceInfo?.serviceType === 'option-based' && (
-                                <div className="text-sm text-gray-600 space-y-1">
-                                    {appointment.serviceInfo?.selectedOptionName && (
-                                        <div className="flex justify-between items-center">
-                                            <span>🏷️ {appointment.serviceInfo.selectedOptionName}</span>
-                                            {appointment.serviceInfo.selectedOptionDuration && (
-                                                <span className="text-gray-400">{appointment.serviceInfo.selectedOptionDuration} นาที/จุด</span>
-                                            )}
-                                        </div>
-                                    )}
-                                    {appointment.serviceInfo?.selectedAreas && appointment.serviceInfo.selectedAreas.length > 0 && (
-                                        <div className="flex items-start gap-1">
-                                            <span>📍</span>
-                                            <span>{appointment.serviceInfo.selectedAreas.join(', ')} ({appointment.serviceInfo.selectedAreas.length} จุด)</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Area-based-options service details */}
-                            {appointment.serviceInfo?.serviceType === 'area-based-options' && appointment.serviceInfo?.selectedAreaOptions && appointment.serviceInfo.selectedAreaOptions.length > 0 && (
-                                <div className="text-sm text-gray-600 space-y-1">
-                                    {appointment.serviceInfo.selectedAreaOptions.map((opt: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between items-center">
-                                            <span>🔸 {opt.areaName} ({opt.optionName})</span>
-                                            <div className="text-gray-400 flex items-center gap-1 text-xs">
-                                                {opt.duration && <span>{opt.duration} นาที</span>}
-                                                {opt.duration && opt.price && <span>•</span>}
-                                                {opt.price && <span>{Number(opt.price).toLocaleString()} {storeProfile?.currencySymbol}</span>}
+                            {isRoomBooking ? (
+                                <>
+                                    <p className="font-semibold text-gray-800">{appointment.roomTypeInfo?.name || 'ไม่ระบุประเภทห้อง'}</p>
+                                    <div className="text-sm text-gray-600">
+                                        {appointment.bookingInfo?.roomId && (
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <span>🚪 ห้อง: {appointment.bookingInfo.roomId}</span>
                                             </div>
+                                        )}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-gray-500">เข้าพัก:</span>
+                                            <span className="font-medium text-gray-900">{formatDate(appointment.bookingInfo?.checkInDate)}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Add-ons */}
-                            {appointment.appointmentInfo?.addOns && appointment.appointmentInfo.addOns.length > 0 && (
-                                <div className="border-t border-gray-200 pt-2 mt-2">
-                                    <p className="text-xs font-semibold text-blue-700 mb-1">บริการเสริม:</p>
-                                    <div className="text-sm text-blue-600 space-y-0.5">
-                                        {appointment.appointmentInfo.addOns.map((addon: any, idx: number) => (
-                                            <div key={idx} className="flex justify-between items-center">
-                                                <span>+ {addon.name}</span>
-                                                <div className="flex items-center gap-1 text-blue-400 text-xs">
-                                                    {addon.duration && <span>{addon.duration} นาที</span>}
-                                                    {addon.duration && addon.price && <span>•</span>}
-                                                    {addon.price && <span>{Number(addon.price).toLocaleString()} {storeProfile?.currencySymbol}</span>}
-                                                </div>
-                                            </div>
-                                        ))}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-500">ออก:</span>
+                                            <span className="font-medium text-gray-900">{formatDate(appointment.bookingInfo?.checkOutDate)}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-2">
+                                            {appointment.bookingInfo?.nights || 1} คืน, {appointment.bookingInfo?.rooms || 1} ห้อง, {appointment.bookingInfo?.guests || 1} ท่าน
+                                        </div>
                                     </div>
-                                </div>
+                                </>
+                            ) : (
+                                // Fallback
+                                <p className="font-semibold text-gray-800">{appointment.serviceInfo?.name}</p>
                             )}
-
-                            {/* Total Duration */}
-                            {appointment.appointmentInfo?.duration && (
-                                <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center text-sm">
-                                    <span className="font-semibold text-gray-700">ระยะเวลารวม</span>
-                                    <span className="font-bold text-gray-900">{appointment.appointmentInfo.duration} นาที</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Date & Time */}
-                        <div className="mt-3 flex items-center justify-between text-sm">
-                            <div className="text-gray-600">
-                                {appointment.date && (
-                                    <span className="font-medium">{format(parseISO(appointment.date), 'dd MMMM yyyy', { locale: th })}</span>
-                                )}
-                            </div>
-                            <span className="font-bold text-gray-900 text-lg">{appointment.time} น.</span>
                         </div>
                     </div>
 
@@ -280,7 +240,7 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                         <h3 className="font-semibold text-md mb-3">การชำระเงิน</h3>
                         <div className="flex items-center justify-between mb-3">
-                            <span className="font-bold text-lg">{appointment.paymentInfo?.totalPrice?.toLocaleString()} {storeProfile?.currencySymbol}</span>
+                            <span className="font-bold text-lg">{appointment.paymentInfo?.totalPrice?.toLocaleString()} {storeProfile?.currencySymbol || '฿'}</span>
                             <span className={`font-semibold px-3 py-1 rounded-full text-sm ${isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                 {isPaid ? 'ชำระเงินแล้ว' : 'ยังไม่ชำระ'}
                             </span>
@@ -293,29 +253,50 @@ export default function AppointmentManagementPage({ params }: { params: Promise<
                         )}
                     </div>
 
-                    {/* --- Check-in Section --- */}
+                    {/* --- Status Action Section --- */}
                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="font-semibold text-md mb-3">การเข้ารับบริการ</h3>
-                        {isCheckedIn ? (
-                            <div className="text-center bg-green-50 p-4 rounded-lg border border-green-100">
-                                <div className="text-green-600 text-xl font-bold mb-1">✓ กำลังให้บริการ</div>
-                                <p className="text-green-800 text-sm">ลูกค้าเข้ารับบริการแล้ว</p>
+                        <h3 className="font-semibold text-md mb-3">สถานะการเข้าพัก</h3>
+
+                        {isCompleted && (
+                            <div className="text-center bg-gray-100 p-4 rounded-lg border border-gray-200">
+                                <div className="text-gray-600 text-lg font-bold mb-1">เช็คเอาท์เรียบร้อย</div>
                             </div>
-                        ) : (
-                            <button onClick={handleCheckIn} disabled={isUpdating || !['pending', 'confirmed', 'awaiting_confirmation'].includes(appointment.status)} className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold text-lg disabled:bg-gray-300 hover:bg-gray-800 shadow-md">
-                                ยืนยันการเข้ารับบริการ
+                        )}
+
+                        {isCheckedIn && (
+                            <div className="space-y-3">
+                                <div className="text-center bg-green-50 p-4 rounded-lg border border-green-100">
+                                    <div className="text-green-600 text-xl font-bold mb-1">✓ เข้าพักอยู่</div>
+                                    <p className="text-green-800 text-sm">ลูกค้าเช็คอินแล้ว</p>
+                                </div>
+                                <button onClick={confirmCheckOut} disabled={isUpdating} className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold text-lg disabled:bg-gray-300 hover:bg-gray-800 shadow-md">
+                                    แจ้งเช็คเอาท์ (Check-out)
+                                </button>
+                            </div>
+                        )}
+
+                        {!isCheckedIn && !isCompleted && appointment.status !== 'cancelled' && (
+                            <button onClick={handleCheckIn} disabled={isUpdating} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg disabled:bg-gray-300 hover:bg-blue-700 shadow-md">
+                                ยืนยันลูกค้าเข้าพัก (Check-in)
                             </button>
+                        )}
+
+                        {appointment.status === 'cancelled' && (
+                            <div className="text-center bg-red-50 p-4 rounded-lg border border-red-100">
+                                <div className="text-red-600 text-lg font-bold">ยกเลิกแล้ว</div>
+                            </div>
                         )}
                     </div>
 
                     {/* --- Other Actions --- */}
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="font-semibold text-md mb-3">การดำเนินการอื่นๆ</h3>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button onClick={confirmComplete} disabled={isUpdating || appointment.status === 'completed'} className="w-full bg-gray-700 text-white py-2 rounded-lg font-semibold disabled:bg-gray-300 hover:bg-gray-800">เสร็จสิ้นบริการ</button>
-                            <button onClick={confirmCancel} disabled={isUpdating || appointment.status === 'cancelled'} className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold disabled:bg-gray-300 hover:bg-red-700">ยกเลิกนัด</button>
+                    {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                            <h3 className="font-semibold text-md mb-3">การดำเนินการอื่นๆ</h3>
+                            <button onClick={confirmCancel} disabled={isUpdating} className="w-full bg-red-50 text-red-600 py-2 rounded-lg font-semibold disabled:bg-gray-100 hover:bg-red-100 border border-red-100">
+                                ยกเลิกการจอง
+                            </button>
                         </div>
-                    </div>
+                    )}
                 </div>
             </main>
 

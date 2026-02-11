@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/app/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useLiffContext } from '@/context/LiffProvider';
 import { Notification, ConfirmationModal } from '@/app/components/common/NotificationComponent';
-import { cancelAppointmentByUser, confirmAppointmentByUser } from '@/app/actions/appointmentActions';
+import { cancelAppointmentByUser } from '@/app/actions/appointmentActions';
 import AppointmentCard from './AppointmentCard';
 import QrCodeModal from '@/app/components/common/QrCodeModal';
 import HistoryCard from './HistoryCard';
@@ -26,7 +26,6 @@ export default function MyAppointmentsPage() {
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
     const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
     const [isCancelling, setIsCancelling] = useState(false);
-    const [isConfirming, setIsConfirming] = useState(false);
 
     useEffect(() => {
         if (notification.show) {
@@ -109,33 +108,20 @@ export default function MyAppointmentsPage() {
         setAppointmentToCancel(null);
     };
 
-    const handleConfirmClick = async (appointment: Appointment) => {
-        if (!profile?.userId || !appointment.id) return;
-        setIsConfirming(true);
-        const lineAccessToken = liff?.getAccessToken?.();
-        const result = await confirmAppointmentByUser(appointment.id, profile.userId, { lineAccessToken });
-        if (result.success) {
-            setNotification({ show: true, title: 'สำเร็จ', message: 'ยืนยันการนัดหมายเรียบร้อย', type: 'success' });
-        } else {
-            setNotification({ show: true, title: 'ผิดพลาด', message: typeof result.error === 'string' ? result.error : 'Unknown error', type: 'error' });
-        }
-        setIsConfirming(false);
-    };
-
     // --- Loading Screen ---
     if (liffLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-                <SpaFlowerIcon className="w-16 h-16 animate-spin" color="#553734" style={{ animationDuration: '3s' }} />
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--background)]">
+                <SpaFlowerIcon className="w-16 h-16 animate-spin text-[var(--primary)]" style={{ animationDuration: '3s' }} />
             </div>
         );
     }
 
-    if (liffError) return <div className="p-4 text-center text-red-500">LIFF Error: {liffError}</div>;
+    if (liffError) return <div className="p-4 text-center text-[var(--error)]">LIFF Error: {liffError}</div>;
 
     return (
-        <div>
-            <CustomerHeader showBackButton={true} showActionButtons={true} />
+        <div className="min-h-screen bg-[var(--background)] text-[var(--text)]">
+            <CustomerHeader showBackButton={true} showActionButtons={false} />
             <div className="p-4 space-y-5 pb-20">
                 <Notification {...notification} />
 
@@ -154,17 +140,22 @@ export default function MyAppointmentsPage() {
                 />
 
                 <div className="space-y-4">
-                    <div className="font-bold text-md text-gray-700">นัดหมายของฉัน</div>
+                    <div className="font-bold text-md text-[var(--text)]">นัดหมายของฉัน</div>
 
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-12">
-                            <SpaFlowerIcon className="w-14 h-14 animate-spin" color="#553734" style={{ animationDuration: '3s' }} />
-                            <p className="text-sm text-gray-400 mt-2">Loading data...</p>
+                            <SpaFlowerIcon className="w-14 h-14 animate-spin text-[var(--primary)]" style={{ animationDuration: '3s' }} />
+                            <p className="text-sm text-[var(--text-muted)] mt-2">Loading data...</p>
                         </div>
                     ) : appointments.length === 0 ? (
-                        <div className="text-center text-gray-500 pt-10 bg-white p-8 rounded-xl shadow-sm">
-                            <p className="font-semibold">ไม่มีรายการนัดหมายที่กำลังดำเนินอยู่</p>
-                            <button className="mt-4 px-4 py-2 bg-[#5D4037] text-white text-sm rounded-lg" onClick={() => router.push('/appointment')}>จองบริการใหม่</button>
+                        <div className="text-center text-[var(--text-muted)] pt-10 bg-[var(--card)] p-8 rounded-xl shadow-sm border border-[var(--border)]">
+                            <p className="font-semibold">ไม่มีรายการนัดหมายที่กำลังดำเนินการ</p>
+                            <button
+                                className="mt-4 px-5 py-2.5 bg-[#ff7a3d] text-white text-sm rounded-2xl font-semibold hover:bg-[#ff6a24] transition-all active:scale-95 shadow-sm"
+                                onClick={() => router.push('/appointment')}
+                            >
+                                จองบริการใหม่
+                            </button>
                         </div>
                     ) : (
                         appointments.map((job) => (
@@ -173,24 +164,25 @@ export default function MyAppointmentsPage() {
                                 job={job}
                                 onQrCodeClick={() => handleQrCodeClick(job.id!)}
                                 onCancelClick={handleCancelClick}
-                                onConfirmClick={handleConfirmClick}
-                                isConfirming={isConfirming}
                             />
                         ))
                     )}
                 </div>
 
                 <div className="flex flex-col items-center mt-6">
-                    <button className="text-gray-700 flex items-center gap-2 focus:outline-none hover:text-gray-900 font-medium bg-white px-4 py-2 rounded-full shadow-sm" onClick={() => setShowHistory(v => !v)}>
+                    <button
+                        className="text-white flex items-center gap-2 focus:outline-none font-semibold bg-[#1f1f22] px-4 py-2 rounded-full shadow-sm hover:bg-black transition-colors"
+                        onClick={() => setShowHistory(v => !v)}
+                    >
                         <span className="text-sm">{showHistory ? '▲ ซ่อนประวัติที่ผ่านมา' : '▼ ดูประวัติที่ผ่านมา'}</span>
                     </button>
                 </div>
 
                 {showHistory && (
                     <div className="space-y-4 mt-2 animate-fade-in-up">
-                        <div className="text-sm text-gray-700 font-medium ml-1">ประวัติการใช้บริการ</div>
+                        <div className="text-sm text-[var(--text-muted)] font-medium ml-1">ประวัติการใช้บริการ</div>
                         {historyBookings.length === 0 ? (
-                            <div className="text-center text-gray-500 py-8 bg-white p-4 rounded-xl border border-gray-100">
+                            <div className="text-center text-[var(--text-muted)] py-8 bg-[var(--card)] p-4 rounded-xl border border-[var(--border)]">
                                 <p className="text-sm">ยังไม่มีประวัติการใช้บริการ</p>
                             </div>
                         ) : (

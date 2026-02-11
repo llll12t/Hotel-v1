@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '@/app/lib/firebase';
@@ -15,6 +15,7 @@ import { useProfile } from '@/context/ProfileProvider';
 interface Appointment {
     id: string;
     status: string;
+    bookingType?: 'service' | 'room';
     customerInfo: {
         pictureUrl?: string;
         fullName?: string;
@@ -28,9 +29,19 @@ interface Appointment {
     serviceInfo: {
         name: string;
         duration: number;
+        serviceType?: string;
     };
     paymentInfo: {
         totalPrice: number;
+    };
+    bookingInfo?: {
+        checkInDate?: string;
+        checkOutDate?: string;
+        nights?: number;
+        rooms?: number;
+    };
+    roomTypeInfo?: {
+        name?: string;
     };
     parsedDate?: Date; // Added for optimization
 }
@@ -91,23 +102,24 @@ function CancelModal({ appointment, onClose, onConfirm }: { appointment: Appoint
 
 // --- Status Config ---
 const STATUS_CONFIG: Record<string, { label: string, bg: string, text: string }> = {
-    awaiting_confirmation: { label: 'รอยืนยัน', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-    confirmed: { label: 'ยืนยันแล้ว', bg: 'bg-blue-100', text: 'text-blue-800' },
-    in_progress: { label: 'กำลังบริการ', bg: 'bg-purple-100', text: 'text-purple-800' },
-    completed: { label: 'เสร็จสิ้น', bg: 'bg-green-100', text: 'text-green-800' },
+    awaiting_confirmation: { label: 'รอชำระภายในวันนี้', bg: 'bg-yellow-100', text: 'text-yellow-800' },
+    pending: { label: 'รอชำระภายในวันนี้', bg: 'bg-yellow-100', text: 'text-yellow-800' },
+    confirmed: { label: 'ชำระแล้ว', bg: 'bg-blue-100', text: 'text-blue-800' },
+    in_progress: { label: 'เช็คอินแล้ว', bg: 'bg-purple-100', text: 'text-purple-800' },
+    completed: { label: 'เช็คเอาท์แล้ว', bg: 'bg-green-100', text: 'text-green-800' },
     cancelled: { label: 'ยกเลิก', bg: 'bg-red-100', text: 'text-red-800' },
-    pending: { label: 'จอง', bg: 'bg-gray-100', text: 'text-gray-800' },
+    blocked: { label: 'ห้องไม่ว่าง', bg: 'bg-gray-100', text: 'text-gray-800' },
 };
 
 const TABS = [
     { key: 'upcoming', label: 'กำลังดำเนินการ' },
     { key: 'all', label: 'ทั้งหมด' },
-    { key: 'in_progress', label: 'กำลังบริการ' },
-    { key: 'confirmed', label: 'ยืนยันแล้ว' },
-    { key: 'awaiting_confirmation', label: 'รอยืนยัน' },
-    { key: 'completed', label: 'เสร็จสิ้น' },
+    { key: 'confirmed', label: 'ชำระแล้ว' },
+    { key: 'awaiting_confirmation', label: 'รอชำระ' },
+    { key: 'completed', label: 'เช็คเอาท์แล้ว' },
     { key: 'cancelled', label: 'ยกเลิก' },
 ];
+
 
 // --- Stat Card ---
 const StatCard = ({ title, value, subValue, color, onClick, active }: any) => (
@@ -126,35 +138,53 @@ const AppointmentCard = ({ appointment, onCancelClick }: { appointment: Appointm
     const router = useRouter();
     const status = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.cancelled;
     const date = appointment.parsedDate || parseAppointmentDate(appointment.appointmentInfo?.dateTime);
+    const isRoomBooking =
+        appointment.bookingType === 'room' ||
+        appointment.serviceInfo?.serviceType === 'room' ||
+        Boolean(appointment.bookingInfo?.checkInDate);
     const duration = (appointment.serviceInfo?.duration || 0) + (appointment.appointmentInfo?.addOns || []).reduce((s, a) => s + (a.duration || 0), 0);
+    const serviceName = appointment.roomTypeInfo?.name || appointment.serviceInfo?.name || 'ห้องพัก';
 
     return (
-        <div onClick={() => router.push(`/appointments/${appointment.id}`)} className="bg-white border border-gray-100 rounded-lg p-3 hover:shadow-sm transition-all cursor-pointer">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {appointment.customerInfo?.pictureUrl ? (
-                        <img src={appointment.customerInfo.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-medium flex-shrink-0">
-                            {(appointment.customerInfo?.name || appointment.customerInfo?.fullName || 'C').charAt(0).toUpperCase()}
+        <div onClick={() => router.push(`/appointments/${appointment.id}`)} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between min-h-[140px]">
+            <div>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {appointment.customerInfo?.pictureUrl ? (
+                            <img src={appointment.customerInfo.pictureUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-200" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-medium flex-shrink-0">
+                                {(appointment.customerInfo?.name || appointment.customerInfo?.fullName || 'C').charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <p className="text-base font-semibold text-gray-900 truncate">{appointment.customerInfo?.fullName || appointment.customerInfo?.name}</p>
+                            <p className="text-xs text-gray-500 truncate">{appointment.customerInfo?.phone}</p>
+                        </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${status.bg} ${status.text} flex-shrink-0`}>{status.label}</span>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-100">
+                    <p className="text-sm font-medium text-gray-800 truncate mb-1">{serviceName}</p>
+                    {isRoomBooking && (
+                        <div className="text-xs text-gray-500 mb-1">
+                            {appointment.bookingInfo?.checkInDate ? format(parseISO(appointment.bookingInfo.checkInDate), 'dd-MM-yyyy', { locale: th }) : '-'}
+                            {' - '}
+                            {appointment.bookingInfo?.checkOutDate ? format(parseISO(appointment.bookingInfo.checkOutDate), 'dd-MM-yyyy', { locale: th }) : '-'}
                         </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{appointment.customerInfo?.fullName || appointment.customerInfo?.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{appointment.customerInfo?.phone}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>
+                            {isRoomBooking
+                                ? `${appointment.bookingInfo?.nights || 1} คืน`
+                                : `${duration} นาที`}
+                        </span>
+                        <span className="font-semibold text-gray-900 text-sm">{(appointment.paymentInfo?.totalPrice || 0).toLocaleString()} {profile.currencySymbol}</span>
                     </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${status.bg} ${status.text} flex-shrink-0`}>{status.label}</span>
             </div>
-            <div className="bg-gray-50 rounded p-2 mb-2">
-                <p className="text-xs font-medium text-gray-800 truncate">{appointment.serviceInfo?.name}</p>
-                <div className="flex items-center justify-between text-[10px] text-gray-500 mt-1">
-                    <span>{duration} นาที</span>
-                    <span className="font-medium text-gray-700">{(appointment.paymentInfo?.totalPrice || 0).toLocaleString()} {profile.currencySymbol}</span>
-                </div>
-            </div>
-            <div className="text-[10px] text-gray-400">
-                {date ? format(date, 'd MMM yyyy, HH:mm', { locale: th }) : '-'}
+            <div className="text-[10px] text-gray-400 text-right">
+                สร้างเมื่อ: {date ? format(date, 'dd-MM-yyyy HH:mm', { locale: th }) : '-'}
             </div>
         </div>
     );
@@ -179,6 +209,10 @@ export default function DashboardPage() {
         endDate: format(new Date(new Date().setDate(new Date().getDate() + 30)), 'yyyy-MM-dd'),
         search: '',
     });
+    const isRoomBooking = (a: Appointment) =>
+        a.bookingType === 'room' ||
+        a.serviceInfo?.serviceType === 'room' ||
+        Boolean(a.bookingInfo?.checkInDate);
 
     useEffect(() => {
         const q = query(collection(db, 'appointments'), orderBy('appointmentInfo.dateTime', 'desc'));
@@ -199,11 +233,15 @@ export default function DashboardPage() {
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+    const roomAppointments = useMemo(() => {
+        return allAppointments.filter(isRoomBooking);
+    }, [allAppointments]);
+
     const filteredAppointments = useMemo(() => {
         const start = startOfDay(parseISO(filters.startDate));
         const end = endOfDay(parseISO(filters.endDate));
         const search = filters.search.toLowerCase();
-        return allAppointments.filter(app => {
+        return roomAppointments.filter(app => {
             const date = app.parsedDate;
             if (!date || date < start || date > end) return false;
 
@@ -213,18 +251,18 @@ export default function DashboardPage() {
             if (search && !fullName.toLowerCase().includes(search) && !phone.includes(search)) return false;
             return true;
         });
-    }, [allAppointments, filters]);
+    }, [roomAppointments, filters]);
 
     const stats = useMemo(() => {
         const today = new Date();
-        const todayApps = allAppointments.filter(a => {
+        const todayApps = roomAppointments.filter(a => {
             const date = a.parsedDate;
             return date ? isSameDay(date, today) : false;
         });
-        const pending = allAppointments.filter(a => a.status === 'awaiting_confirmation');
+        const pending = roomAppointments.filter(a => ['awaiting_confirmation', 'pending'].includes(a.status));
         const revenue = filteredAppointments.reduce((sum, a) => sum + (a.status !== 'cancelled' ? (a.paymentInfo?.totalPrice || 0) : 0), 0);
         return { todayCount: todayApps.length, pendingCount: pending.length, totalRevenue: revenue, totalFiltered: filteredAppointments.length };
-    }, [allAppointments, filteredAppointments]);
+    }, [roomAppointments, filteredAppointments]);
 
     const tabAppointments = filteredAppointments.filter(a => {
         if (activeTab === 'all') return true;
@@ -275,7 +313,7 @@ export default function DashboardPage() {
                 <StatCard title="วันนี้" value={stats.todayCount} subValue="รายการ" color="bg-blue-500"
                     onClick={() => { setFilters(p => ({ ...p, startDate: format(new Date(), 'yyyy-MM-dd'), endDate: format(new Date(), 'yyyy-MM-dd') })); setActiveTab('all'); }}
                     active={isSameDay(parseISO(filters.startDate), new Date()) && isSameDay(parseISO(filters.endDate), new Date())} />
-                <StatCard title="รอยืนยัน" value={stats.pendingCount} subValue="รายการ" color="bg-yellow-500"
+                <StatCard title="รอชำระ" value={stats.pendingCount} subValue="รายการ" color="bg-yellow-500"
                     onClick={() => setActiveTab('awaiting_confirmation')} active={activeTab === 'awaiting_confirmation'} />
                 <StatCard title="รายได้" value={`${stats.totalRevenue.toLocaleString()}`} subValue={profile.currencySymbol} color="bg-green-500" />
                 <StatCard title="ทั้งหมด" value={stats.totalFiltered} subValue="รายการ" color="bg-gray-400"
@@ -287,17 +325,26 @@ export default function DashboardPage() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                     {/* Tabs */}
                     <div className="flex flex-wrap gap-1">
-                        {TABS.map(tab => (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${activeTab === tab.key ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
-                                {tab.label}
-                                <span className={`ml-1 px-1 rounded text-[10px] ${activeTab === tab.key ? 'bg-white/20' : 'bg-gray-200'}`}>
-                                    {tab.key === 'all' ? filteredAppointments.length :
-                                        tab.key === 'upcoming' ? filteredAppointments.filter(a => ['awaiting_confirmation', 'confirmed', 'in_progress', 'pending'].includes(a.status)).length :
-                                            filteredAppointments.filter(a => a.status === tab.key).length}
-                                </span>
-                            </button>
-                        ))}
+                        {TABS.map(tab => {
+                            const count =
+                                tab.key === 'all'
+                                    ? filteredAppointments.length
+                                    : tab.key === 'upcoming'
+                                        ? filteredAppointments.filter(a => ['awaiting_confirmation', 'confirmed', 'in_progress', 'pending'].includes(a.status)).length
+                                        : filteredAppointments.filter(a => a.status === tab.key).length;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${activeTab === tab.key ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                    {tab.label}
+                                    <span className={`ml-1 px-1 rounded text-[10px] ${activeTab === tab.key ? 'bg-white/20' : 'bg-gray-200'}`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                     {/* Filters */}
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -316,7 +363,7 @@ export default function DashboardPage() {
             {currentItems.length > 0 ? (
                 <>
                     {viewMode === 'grid' ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3">
                             {currentItems.map(app => <AppointmentCard key={app.id} appointment={app} onCancelClick={setAppointmentToCancel} />)}
                         </div>
                     ) : (
@@ -325,8 +372,9 @@ export default function DashboardPage() {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ลูกค้า</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">บริการ</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ห้องพัก</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">เช็คอิน</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">เช็คเอาท์</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ราคา</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase"></th>
@@ -335,7 +383,6 @@ export default function DashboardPage() {
                                 <tbody className="divide-y divide-gray-200">
                                     {currentItems.map(app => {
                                         const status = STATUS_CONFIG[app.status] || STATUS_CONFIG.cancelled;
-                                        const date = app.parsedDate;
                                         return (
                                             <tr key={app.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4">
@@ -356,10 +403,9 @@ export default function DashboardPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-gray-900">{app.serviceInfo?.name}</td>
-                                                <td className="px-6 py-4 text-sm text-gray-600">
-                                                    {date ? format(date, 'd MMM HH:mm', { locale: th }) : '-'}
-                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-900">{app.roomTypeInfo?.name || app.serviceInfo?.name || '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">{app.bookingInfo?.checkInDate ? format(parseISO(app.bookingInfo.checkInDate), 'dd-MM-yyyy', { locale: th }) : '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">{app.bookingInfo?.checkOutDate ? format(parseISO(app.bookingInfo.checkOutDate), 'dd-MM-yyyy', { locale: th }) : '-'}</td>
                                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{(app.paymentInfo?.totalPrice || 0).toLocaleString()} {profile.currencySymbol}</td>
                                                 <td className="px-6 py-4">
                                                     <span className={`px-2 py-1 rounded text-xs font-medium ${status.bg} ${status.text}`}>{status.label}</span>

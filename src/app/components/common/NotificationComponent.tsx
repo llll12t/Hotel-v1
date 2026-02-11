@@ -66,14 +66,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ show, titl
                 <div className="flex justify-end gap-3">
                     <button
                         onClick={onCancel}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                        className="px-4 py-2.5 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 font-semibold transition-colors border border-gray-200 shadow-sm"
                     >
                         ยกเลิก
                     </button>
                     <button
                         onClick={onConfirm}
                         disabled={isProcessing}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        className="px-4 py-2.5 bg-[#ff7a3d] text-white rounded-2xl hover:bg-[#ff6a24] font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-sm"
                     >
                         {isProcessing ? 'กำลังดำเนินการ...' : 'ยืนยัน'}
                     </button>
