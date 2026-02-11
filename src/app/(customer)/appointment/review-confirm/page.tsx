@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
@@ -20,7 +20,7 @@ interface Coupon {
   used?: boolean;
 }
 
-export default function ReviewConfirmPage() {
+function ReviewConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, loading: liffLoading, liff } = useLiffContext();
@@ -344,5 +344,13 @@ export default function ReviewConfirmPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReviewConfirmPage() {
+  return (
+    <Suspense fallback={<LoadingScreen spinnerStyle={{ animationDuration: "3s" }} />}>
+      <ReviewConfirmContent />
+    </Suspense>
   );
 }

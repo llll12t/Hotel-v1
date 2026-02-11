@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -11,7 +11,7 @@ import { useToast } from "@/app/components/Toast";
 import LoadingScreen from "@/app/components/common/LoadingScreen";
 import { RoomType } from "@/types";
 
-export default function GuestInfoPage() {
+function GuestInfoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, loading: liffLoading } = useLiffContext();
@@ -227,5 +227,13 @@ export default function GuestInfoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function GuestInfoPage() {
+  return (
+    <Suspense fallback={<LoadingScreen spinnerStyle={{ animationDuration: "3s" }} />}>
+      <GuestInfoContent />
+    </Suspense>
   );
 }
