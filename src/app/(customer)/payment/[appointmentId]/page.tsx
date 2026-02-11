@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import QRCode from 'qrcode';
@@ -9,7 +9,8 @@ import generatePayload from 'promptpay-qr';
 
 export default function PaymentPage() {
     const params = useParams();
-    const appointmentId = params?.appointmentId as string;
+    const searchParams = useSearchParams();
+    const routeAppointmentId = params?.appointmentId as string;
     const [appointment, setAppointment] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -18,6 +19,28 @@ export default function PaymentPage() {
 
     useEffect(() => {
         const fetchAppointmentAndSettings = async () => {
+            let appointmentId = routeAppointmentId;
+            if (!appointmentId) {
+                appointmentId = searchParams.get('appointmentId') as string;
+            }
+            if (!appointmentId) {
+                const liffState = searchParams.get('liff.state');
+                if (liffState) {
+                    const parts = liffState.split('/');
+                    const paymentIndex = parts.findIndex((part) => part === 'payment');
+                    if (paymentIndex !== -1 && parts.length > paymentIndex + 1) {
+                        appointmentId = parts[paymentIndex + 1];
+                    }
+                }
+            }
+            if (!appointmentId && typeof window !== 'undefined') {
+                const pathParts = window.location.pathname.split('/');
+                const paymentIndex = pathParts.findIndex((part) => part === 'payment');
+                if (paymentIndex !== -1 && pathParts.length > paymentIndex + 1) {
+                    appointmentId = pathParts[paymentIndex + 1];
+                }
+            }
+
             if (!appointmentId) {
                 setError('ไม่พบรหัสการนัดหมาย');
                 setLoading(false);
@@ -78,7 +101,7 @@ export default function PaymentPage() {
         };
 
         fetchAppointmentAndSettings();
-    }, [appointmentId]);
+    }, [routeAppointmentId, searchParams]);
 
     if (loading) {
         return (
