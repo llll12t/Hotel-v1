@@ -65,9 +65,21 @@ export interface RoomType {
     maxGuests?: number;
     sizeSqM?: number;
     amenities?: string[];
+    reviewQuestions?: ReviewQuestion[];
     status?: 'available' | 'full' | 'unavailable';
     createdAt?: any;
     updatedAt?: any;
+}
+
+export interface ReviewQuestion {
+    id: string;
+    question: string;
+}
+
+export interface ReviewAnswer {
+    id?: string;
+    question: string;
+    score: number;
 }
 
 
@@ -92,6 +104,7 @@ export interface Appointment {
         name?: string;
         fullName?: string;
         phone?: string;
+        email?: string;
         pictureUrl?: string;
         note?: string;
     };
@@ -148,6 +161,20 @@ export interface Appointment {
         paidAt?: any;
         paymentDueAt?: any;
     };
+    pointInfo?: {
+        purchaseAwarded?: boolean;
+        purchaseAwardedAt?: any;
+        purchaseAwardSource?: string;
+        purchaseAmount?: number;
+        purchasePointsAwarded?: number;
+        visitAwarded?: boolean;
+        visitAwardedAt?: any;
+        visitAwardSource?: string;
+        visitPointsAwarded?: number;
+        totalPointsAwarded?: number;
+        lastAwardSource?: string;
+        lastAwardAt?: any;
+    };
     addOns?: any[];
     date?: any;
     time?: string;
@@ -176,6 +203,8 @@ export interface Customer {
     phone: string;
     email?: string;
     userId?: string;
+    lineUserId?: string;
+    pictureUrl?: string;
     points?: number;
     createdAt?: any;
     updatedAt?: any;
