@@ -55,34 +55,36 @@ const buildPaymentNotifyFlex = (params: {
     contents: {
       type: "bubble",
       size: "mega",
-      header: {
-        type: "box",
-        layout: "vertical",
-        paddingAll: "16px",
-        backgroundColor: "#1f1f22",
-        contents: [
-          {
-            type: "text",
-            text: "แจ้งชำระเงินแล้ว",
-            color: "#FFFFFF",
-            weight: "bold",
-            size: "md",
-          },
-          {
-            type: "text",
-            text: `รหัสการจอง ${shortBookingId}`,
-            color: "#D4D4D8",
-            size: "xs",
-            margin: "sm",
-          },
-        ],
-      },
       body: {
         type: "box",
         layout: "vertical",
-        spacing: "md",
+        spacing: "lg",
         paddingAll: "16px",
         contents: [
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            contents: [
+              {
+                type: "text",
+                text: "แจ้งชำระเงินแล้ว",
+                color: "#111827",
+                weight: "bold",
+                size: "md",
+              },
+              {
+                type: "text",
+                text: `รหัสการจอง ${shortBookingId}`,
+                color: "#71717A",
+                size: "xs",
+              },
+            ],
+          },
+          {
+            type: "separator",
+            color: "#E4E4E7",
+          },
           {
             type: "box",
             layout: "vertical",
@@ -109,7 +111,9 @@ const buildPaymentNotifyFlex = (params: {
           {
             type: "box",
             layout: "vertical",
-            backgroundColor: "#F4F4F5",
+            backgroundColor: "#FAFAFA",
+            borderColor: "#E4E4E7",
+            borderWidth: "1px",
             cornerRadius: "10px",
             paddingAll: "12px",
             contents: [
@@ -132,11 +136,22 @@ const buildPaymentNotifyFlex = (params: {
           ...(slipNote
             ? [
                 {
-                  type: "text",
-                  text: `หมายเหตุ: ${slipNote}`,
-                  size: "xs",
-                  color: "#52525B",
-                  wrap: true,
+                  type: "box",
+                  layout: "vertical",
+                  backgroundColor: "#FAFAFA",
+                  borderColor: "#E4E4E7",
+                  borderWidth: "1px",
+                  cornerRadius: "10px",
+                  paddingAll: "10px",
+                  contents: [
+                    {
+                      type: "text",
+                      text: `หมายเหตุ: ${slipNote}`,
+                      size: "xs",
+                      color: "#52525B",
+                      wrap: true,
+                    },
+                  ],
                 },
               ]
             : []),

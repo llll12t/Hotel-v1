@@ -27,94 +27,124 @@ const createBookingSuccessFlex = (payload: {
   checkOut: string;
   totalPrice: number;
   currencySymbol: string;
-}) => ({
-  type: "flex",
-  altText: `จองห้องสำเร็จ ${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
-  contents: {
-    type: "bubble",
-    size: "mega",
-    body: {
-      type: "box",
-      layout: "vertical",
-      spacing: "md",
-      contents: [
-        {
-          type: "text",
-          text: "จองห้องสำเร็จ",
-          weight: "bold",
-          size: "lg",
-          color: "#553734",
-          align: "center",
-        },
-        {
-          type: "separator",
-          color: "#D9CFC3",
-        },
-        {
-          type: "box",
-          layout: "vertical",
-          spacing: "sm",
-          contents: [
-            {
+}) => {
+  const customerLiffId = process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID;
+  const paymentUrl = customerLiffId
+    ? `https://liff.line.me/${customerLiffId}/payment/${payload.bookingId}`
+    : null;
+
+  return {
+    type: "flex",
+    altText: `จองห้องสำเร็จ ${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        contents: [
+          {
+            type: "text",
+            text: "จองห้องสำเร็จ",
+            weight: "bold",
+            size: "lg",
+            color: "#553734",
+            align: "center",
+          },
+          {
+            type: "separator",
+            color: "#D9CFC3",
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เลขที่การจอง", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: payload.bookingId.slice(0, 8).toUpperCase(), size: "sm", color: "#111111", align: "end", flex: 4 },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: payload.roomTypeName || "-", size: "sm", color: "#111111", align: "end", flex: 4, wrap: true },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เช็คอิน", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: payload.checkIn, size: "sm", color: "#111111", align: "end", flex: 4 },
+                ],
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เช็คเอาท์", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: payload.checkOut, size: "sm", color: "#111111", align: "end", flex: 4 },
+                ],
+              },
+            ],
+            paddingAll: "12px",
+            backgroundColor: "#F8F8F8",
+            cornerRadius: "10px",
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              { type: "text", text: "ยอดชำระ", weight: "bold", size: "md", color: "#333333", flex: 0 },
+              {
+                type: "text",
+                text: `${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+                weight: "bold",
+                size: "md",
+                color: "#553734",
+                align: "end",
+              },
+            ],
+            paddingAll: "12px",
+            backgroundColor: "#F5F2ED",
+            cornerRadius: "10px",
+          },
+        ],
+        paddingAll: "20px",
+      },
+      ...(paymentUrl
+        ? {
+            footer: {
               type: "box",
-              layout: "horizontal",
+              layout: "vertical",
+              spacing: "sm",
+              paddingAll: "20px",
               contents: [
-                { type: "text", text: "เลขที่การจอง", size: "sm", color: "#666666", flex: 3 },
-                { type: "text", text: payload.bookingId.slice(0, 8).toUpperCase(), size: "sm", color: "#111111", align: "end", flex: 4 },
+                {
+                  type: "button",
+                  style: "primary",
+                  height: "sm",
+                  color: "#553734",
+                  action: {
+                    type: "uri",
+                    label: "ชำระเงิน",
+                    uri: paymentUrl,
+                  },
+                },
               ],
             },
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 3 },
-                { type: "text", text: payload.roomTypeName || "-", size: "sm", color: "#111111", align: "end", flex: 4, wrap: true },
-              ],
-            },
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                { type: "text", text: "เช็คอิน", size: "sm", color: "#666666", flex: 3 },
-                { type: "text", text: payload.checkIn, size: "sm", color: "#111111", align: "end", flex: 4 },
-              ],
-            },
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                { type: "text", text: "เช็คเอาท์", size: "sm", color: "#666666", flex: 3 },
-                { type: "text", text: payload.checkOut, size: "sm", color: "#111111", align: "end", flex: 4 },
-              ],
-            },
-          ],
-          paddingAll: "12px",
-          backgroundColor: "#F8F8F8",
-          cornerRadius: "10px",
-        },
-        {
-          type: "box",
-          layout: "horizontal",
-          contents: [
-            { type: "text", text: "ยอดชำระ", weight: "bold", size: "md", color: "#333333", flex: 0 },
-            {
-              type: "text",
-              text: `${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
-              weight: "bold",
-              size: "md",
-              color: "#553734",
-              align: "end",
-            },
-          ],
-          paddingAll: "12px",
-          backgroundColor: "#F5F2ED",
-          cornerRadius: "10px",
-        },
-      ],
-      paddingAll: "20px",
+          }
+        : {}),
     },
-  },
-});
+  };
+};
 
 function ReviewConfirmContent() {
   const router = useRouter();
