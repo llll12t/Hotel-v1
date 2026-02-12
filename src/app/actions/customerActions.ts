@@ -15,11 +15,30 @@ export interface CustomerData {
     [key: string]: any;
 }
 
+const normalizePhone = (phone?: string) => {
+    if (typeof phone !== 'string') return undefined;
+    const trimmed = phone.trim();
+    return trimmed || undefined;
+};
+
+const normalizeText = (value?: string) => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed || undefined;
+};
+
+const toNumberSafe = (value: any) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 /**
  * Find or create customer with automatic points merging when LINE ID is connected
  */
 export async function findOrCreateCustomer(customerData: CustomerData, userId?: string) {
-    if (!customerData?.phone && !userId) {
+    const lineUserId = normalizeText(userId);
+    const normalizedPhone = normalizePhone(customerData?.phone);
+    if (!normalizedPhone && !lineUserId) {
         return {
             success: false,
             error: 'Phone number or User ID is required.'
@@ -27,101 +46,102 @@ export async function findOrCreateCustomer(customerData: CustomerData, userId?: 
     }
 
     const customersRef = db.collection('customers');
-    let customerQuery;
-    let customerDocRef;
-
-    // Prioritize finding customer by LINE User ID if available
-    if (userId) {
-        customerDocRef = customersRef.doc(userId);
-        const customerDoc = await customerDocRef.get();
-        customerQuery = customerDoc.exists ? [customerDoc] : [];
-    } else {
-        const q = customersRef.where('phone', '==', customerData.phone).limit(1);
-        const snapshot = await q.get();
-        customerQuery = snapshot.docs;
-        if (customerQuery.length > 0) {
-            customerDocRef = customerQuery[0].ref;
+    let lineCustomerDoc: any = null;
+    if (lineUserId) {
+        lineCustomerDoc = await customersRef.doc(lineUserId).get();
+    }
+    let phoneCustomerDoc: any = null;
+    if (normalizedPhone) {
+        const phoneSnapshot = await customersRef.where('phone', '==', normalizedPhone).limit(3).get();
+        if (!phoneSnapshot.empty) {
+            phoneCustomerDoc = lineUserId
+                ? (phoneSnapshot.docs.find((doc: any) => doc.id === lineUserId) || phoneSnapshot.docs[0])
+                : phoneSnapshot.docs[0];
         }
     }
 
     try {
-        let customerId;
-        let mergedPoints = 0;
+        const targetRef = lineUserId
+            ? customersRef.doc(lineUserId)
+            : (phoneCustomerDoc?.ref || customersRef.doc());
 
-        if (customerQuery.length > 0) {
-            // --- Customer Found ---
-            const customerDoc = customerQuery[0];
-            customerId = customerDoc.id;
+        const targetDoc = lineUserId ? lineCustomerDoc : phoneCustomerDoc;
+        const targetExists = !!targetDoc?.exists;
+        const targetData = targetExists ? (targetDoc.data() || {}) : {};
 
-            const updateData: any = {
-                updatedAt: FieldValue.serverTimestamp(),
-            };
+        let legacyPhoneDocToDelete: any = null;
+        let transferredPointsFromLegacy = 0;
+        let legacyPhoneData: any = {};
 
-            if (customerData.fullName) updateData.fullName = customerData.fullName;
-            if (customerData.email) updateData.email = customerData.email;
-            if (customerData.phone) updateData.phone = customerData.phone;
-
-            const existingCustomerData = customerDoc.data();
-            const existingUserId = existingCustomerData?.userId;
-
-            if (userId && customerData.phone && !existingUserId) {
-                const phonePointsCheck = await checkPhonePointsForMerge(customerData.phone);
-
-                if (phonePointsCheck.success && phonePointsCheck.hasPoints) {
-                    const mergeResult = await mergePointsFromPhone(userId, customerData.phone);
-
-                    if (mergeResult.success) {
-                        mergedPoints = mergeResult.mergedPoints || 0;
-                        updateData.mergedFromPhone = true;
-                        updateData.mergedPoints = mergedPoints;
-                        updateData.mergedAt = FieldValue.serverTimestamp();
-                    }
-                }
-                updateData.userId = userId;
-            }
-
-            if (customerDocRef) {
-                await customerDocRef.update(updateData);
+        if (lineUserId && phoneCustomerDoc && phoneCustomerDoc.id !== lineUserId) {
+            const phoneData = phoneCustomerDoc.data() || {};
+            const phoneLinkedUserId = normalizeText(phoneData.userId);
+            if (!phoneLinkedUserId || phoneLinkedUserId === lineUserId) {
+                legacyPhoneDocToDelete = phoneCustomerDoc.ref;
+                legacyPhoneData = phoneData;
+                transferredPointsFromLegacy = toNumberSafe(phoneData.points);
             } else {
-                // Should not happen if logic correct
+                console.warn(`Phone ${normalizedPhone} is already linked to another LINE user (${phoneLinkedUserId}).`);
             }
-            console.log(`Updated customer ${customerId}`);
+        }
 
+        const sourceData = {
+            ...legacyPhoneData,
+            ...targetData,
+        };
+
+        const finalFullName = normalizeText(customerData.fullName) || normalizeText(sourceData.fullName);
+        const finalEmail = normalizeText(customerData.email) || normalizeText(sourceData.email) || '';
+        const finalPhone = normalizedPhone || normalizePhone(sourceData.phone);
+        const finalPictureUrl = normalizeText(customerData.pictureUrl) || normalizeText(sourceData.pictureUrl) || '';
+
+        const upsertData: any = {
+            updatedAt: FieldValue.serverTimestamp(),
+            userId: lineUserId || sourceData.userId || null,
+            lineUserId: lineUserId || sourceData.lineUserId || null,
+        };
+
+        if (finalFullName) upsertData.fullName = finalFullName;
+        if (finalPhone) upsertData.phone = finalPhone;
+        upsertData.email = finalEmail;
+        if (finalPictureUrl) upsertData.pictureUrl = finalPictureUrl;
+        if (customerData.note) upsertData.note = customerData.note;
+
+        if (lineUserId && !sourceData.connectedLineAt) {
+            upsertData.connectedLineAt = FieldValue.serverTimestamp();
+        }
+
+        if (targetExists) {
+            if (transferredPointsFromLegacy > 0) {
+                upsertData.points = FieldValue.increment(transferredPointsFromLegacy);
+            }
+            await targetRef.update(upsertData);
         } else {
-            // --- Customer Not Found - Create New ---
-            if (userId && customerData.phone) {
-                const phonePointsCheck = await checkPhonePointsForMerge(customerData.phone);
+            upsertData.createdAt = FieldValue.serverTimestamp();
+            upsertData.points = toNumberSafe(sourceData.points);
+            await targetRef.set(upsertData, { merge: true });
+        }
 
-                if (phonePointsCheck.success && phonePointsCheck.hasPoints) {
-                    const mergeResult = await mergePointsFromPhone(userId, customerData.phone);
-                    if (mergeResult.success) {
-                        mergedPoints = mergeResult.mergedPoints || 0;
-                    }
+        if (legacyPhoneDocToDelete) {
+            await legacyPhoneDocToDelete.delete();
+        }
+
+        let mergedPoints = 0;
+        if (lineUserId && finalPhone) {
+            const phonePointsCheck = await checkPhonePointsForMerge(finalPhone);
+            if (phonePointsCheck.success && phonePointsCheck.hasPoints) {
+                const mergeResult = await mergePointsFromPhone(lineUserId, finalPhone);
+                if (mergeResult.success) {
+                    mergedPoints = mergeResult.mergedPoints || 0;
                 }
             }
-
-            const newCustomerRef = userId ? customersRef.doc(userId) : customersRef.doc();
-            const newCustomerData = {
-                fullName: customerData.fullName,
-                phone: customerData.phone,
-                email: customerData.email || '',
-                userId: userId || null,
-                points: mergedPoints,
-                mergedFromPhone: mergedPoints > 0,
-                mergedPoints: mergedPoints > 0 ? mergedPoints : null,
-                mergedAt: mergedPoints > 0 ? FieldValue.serverTimestamp() : null,
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
-            };
-
-            await newCustomerRef.set(newCustomerData);
-            customerId = newCustomerRef.id;
         }
 
         return {
             success: true,
-            customerId: customerId,
-            mergedPoints: mergedPoints
+            customerId: targetRef.id,
+            mergedPoints,
+            transferredPoints: transferredPointsFromLegacy
         };
 
     } catch (error: any) {
@@ -183,6 +203,7 @@ export async function connectLineToCustomerInternal(phoneNumber: string, userId:
                 ...existingData,
                 ...additionalData,
                 userId: userId,
+                lineUserId: userId,
                 phone: phoneNumber,
                 phoneNumber: phoneNumber,
                 connectedLineAt: FieldValue.serverTimestamp(),
@@ -206,10 +227,11 @@ export async function connectLineToCustomerInternal(phoneNumber: string, userId:
             if (mergeResult.success) {
                 mergedPoints = mergeResult.mergedPoints || 0;
                 await db.collection('customers').doc(userId).update({
+                    userId: userId,
+                    lineUserId: userId,
                     mergedFromPhone: true,
                     mergedPoints: mergedPoints,
                     mergedAt: FieldValue.serverTimestamp(),
-                    points: FieldValue.increment(mergedPoints)
                 });
             }
         }
@@ -221,6 +243,7 @@ export async function connectLineToCustomerInternal(phoneNumber: string, userId:
                 phoneNumber: phoneNumber,
                 email: additionalData.email || '',
                 userId: userId,
+                lineUserId: userId,
                 points: mergedPoints,
                 mergedFromPhone: mergedPoints > 0,
                 mergedPoints: mergedPoints > 0 ? mergedPoints : null,
@@ -258,6 +281,7 @@ export async function addCustomer(customerData: any, auth?: AuthContext) {
 
         await db.collection('customers').add({
             ...customerData,
+            lineUserId: customerData.userId || customerData.lineUserId || null,
             points: Number(customerData.points) || 0,
             createdAt: FieldValue.serverTimestamp(),
         });

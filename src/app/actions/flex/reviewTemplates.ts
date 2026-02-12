@@ -1,249 +1,166 @@
 "use server";
-import { getShopProfile } from '../settingsActions';
-import { formatServiceName } from './helpers';
+
+import {
+    FLEX_THEME,
+    createFlexHeader,
+    createFlexInfoCard,
+    createFlexPrimaryButton,
+    createSimpleNoticeFlex,
+    formatServiceName,
+    formatThaiDate,
+} from './helpers';
+
+const COLORS = FLEX_THEME.colors;
+
+const summaryRow = (label: string, value: string, valueFlex = 3) => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+        {
+            type: "text",
+            text: label,
+            size: "sm",
+            color: COLORS.muted,
+            flex: 2
+        },
+        {
+            type: "text",
+            text: value,
+            size: "sm",
+            color: COLORS.text,
+            flex: valueFlex,
+            align: "end",
+            wrap: true
+        }
+    ]
+});
+
 export async function createReviewFlexTemplate(appointmentData: any) {
-    const { id, appointmentId, serviceInfo, customerInfo, date, time } = appointmentData;
-    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
-    const serviceName = formatServiceName(serviceInfo);
+    const { id, appointmentId, serviceInfo, customerInfo, date, time } = appointmentData || {};
+    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'Customer';
+    const serviceName = formatServiceName(serviceInfo || {});
     const safeId = (id || appointmentId || '').toString();
-    const appointmentDate = new Date(date).toLocaleDateString('th-TH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
+    const appointmentDate = date ? formatThaiDate(date) : '-';
 
     return {
         type: "flex",
-        altText: `ให้คะแนนรีวิว ${serviceName}`,
+        altText: `Please review ${serviceName}`,
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
+                    ...createFlexHeader("Rate your experience"),
                     {
                         type: "text",
-                        text: "ให้คะแนนรีวิว",
+                        text: `Dear ${customerName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#553734",
-                        align: "center",
-                        margin: "none"
-                    },
-                    {
-                        type: "separator",
-                        margin: "md",
-                        color: "#553734"
+                        color: COLORS.text
                     },
                     {
                         type: "text",
-                        text: `เรียน ${customerName}`,
-                        weight: "bold",
-                        size: "md",
-                        color: "#333333",
-                        margin: "md"
-                    },
-                    {
-                        type: "text",
-                        text: "ช่วยรีวิวบริการของเรา",
-                        size: "md",
-                        color: "#553734",
-                        weight: "bold",
-                        margin: "sm"
-                    },
-                    {
-                        type: "text",
-                        text: "เพื่อช่วยให้เราปรับปรุงบริการให้ดียิ่งขึ้น",
+                        text: "Your feedback helps us improve our service.",
                         size: "sm",
-                        color: "#666666",
-                        wrap: true,
-                        margin: "sm"
+                        color: COLORS.muted,
+                        wrap: true
                     },
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        contents: [
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "บริการ",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: serviceName,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 3,
-                                        wrap: true,
-                                        align: "end"
-                                    }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "วันที่",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: `${appointmentDate}`,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 2,
-                                        align: "end"
-                                    },
-                                    {
-                                        type: "text",
-                                        text: time,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 1,
-                                        align: "end"
-                                    }
-                                ]
-                            }
-                        ],
-                        spacing: "sm",
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F8F8F8",
-                        cornerRadius: "8px"
-                    },
+                    createFlexInfoCard([
+                        summaryRow("Service", serviceName),
+                        summaryRow("Date", `${appointmentDate} ${time || ''}`.trim()),
+                    ]),
                     {
                         type: "box",
                         layout: "vertical",
                         contents: [
                             {
                                 type: "text",
-                                text: "กดปุ่มด้านล่างเพื่อให้คะแนนและแสดงความคิดเห็น",
+                                text: "Tap the button below to submit your review.",
                                 size: "sm",
-                                color: "#553734",
+                                color: COLORS.primary,
                                 wrap: true,
                                 align: "center"
                             }
                         ],
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F5F2ED",
-                        cornerRadius: "8px"
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.soft,
+                        cornerRadius: FLEX_THEME.radius
                     }
-                ],
-                spacing: "md",
-                paddingAll: "20px"
+                ]
             },
             footer: {
                 type: "box",
                 layout: "vertical",
                 contents: [
-                    {
-                        type: "button",
-                        style: "primary",
-                        height: "sm",
-                        action: {
-                            type: "uri",
-                            label: "ให้คะแนน",
-                            uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID}/review/${safeId}`
-                        },
-                        color: "#553734"
-                    }
+                    createFlexPrimaryButton(
+                        "Write a review",
+                        `https://liff.line.me/${process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID}/review/${safeId}`
+                    )
                 ],
                 spacing: "sm",
-                paddingAll: "20px"
+                paddingAll: FLEX_THEME.footerPadding
             }
         }
     };
 }
 
 export async function createReviewThankYouFlexTemplate(reviewData: any) {
-    const { rating, comment, customerName } = reviewData;
-    const stars = '⭐'.repeat(rating);
-    const customerDisplayName = customerName || 'คุณลูกค้า';
+    const rating = Number(reviewData?.rating || 0);
+    const comment = typeof reviewData?.comment === 'string' ? reviewData.comment : '';
+    const pointsAwarded = Number(reviewData?.pointsAwarded || 0);
+    const customerDisplayName = reviewData?.customerName || 'Customer';
+    const stars = rating > 0 ? '★'.repeat(Math.min(5, rating)) : '';
+
+    if (!rating && !comment) {
+        const pointsText = pointsAwarded > 0 ? ` You earned ${pointsAwarded} points.` : '';
+        return createSimpleNoticeFlex(
+            'Thanks for your review',
+            `We appreciate your feedback.${pointsText}`,
+            'Thanks for your review'
+        );
+    }
 
     return {
         type: "flex",
-        altText: `🎉 ขอบคุณสำหรับรีวิว ${rating} ดาว`,
+        altText: `Thanks for your ${rating}/5 review`,
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
-                    {
-                        type: "text",
-                        text: "ขอบคุณสำหรับรีวิว!",
-                        weight: "bold",
-                        size: "md",
-                        color: "#553734",
-                        align: "center",
-                        margin: "none"
-                    },
-                    {
+                    ...createFlexHeader("Thank you for your review"),
+                    ...(stars ? [{
                         type: "text",
                         text: stars,
                         size: "md",
-                        color: "#553734",
-                        align: "center",
-                        margin: "sm"
-                    },
-                    {
-                        type: "separator",
-                        margin: "md",
-                        color: "#553734"
-                    },
+                        color: COLORS.primary,
+                        align: "center"
+                    }] : []),
                     {
                         type: "text",
-                        text: `เรียน ${customerDisplayName}`,
+                        text: `Dear ${customerDisplayName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#333333",
-                        margin: "md"
+                        color: COLORS.text
                     },
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            {
-                                type: "text",
-                                text: "คะแนนที่ให้",
-                                size: "md",
-                                color: "#666666",
-                                flex: 0
-                            },
-                            {
-                                type: "text",
-                                text: `${rating}/5 ดาว`,
-                                weight: "bold",
-                                size: "md",
-                                color: "#553734",
-                                align: "end"
-                            }
-                        ],
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F8F8F8",
-                        cornerRadius: "8px"
-                    },
+                    createFlexInfoCard([
+                        summaryRow("Rating", `${rating}/5`),
+                        ...(pointsAwarded > 0 ? [summaryRow("Points", `${pointsAwarded}`)] : []),
+                    ]),
                     ...(comment ? [
                         {
                             type: "text",
-                            text: "ความคิดเห็น",
+                            text: "Comment",
                             size: "sm",
-                            color: "#666666",
-                            margin: "md"
+                            color: COLORS.muted
                         },
                         {
                             type: "box",
@@ -252,16 +169,14 @@ export async function createReviewThankYouFlexTemplate(reviewData: any) {
                                 {
                                     type: "text",
                                     text: `"${comment}"`,
-                                    size: "md",
-                                    color: "#333333",
-                                    wrap: true,
-                                    style: "italic"
+                                    size: "sm",
+                                    color: COLORS.text,
+                                    wrap: true
                                 }
                             ],
-                            margin: "sm",
-                            paddingAll: "12px",
-                            backgroundColor: "#F8F8F8",
-                            cornerRadius: "8px"
+                            paddingAll: FLEX_THEME.sectionPadding,
+                            backgroundColor: COLORS.card,
+                            cornerRadius: FLEX_THEME.radius
                         }
                     ] : []),
                     {
@@ -270,21 +185,18 @@ export async function createReviewThankYouFlexTemplate(reviewData: any) {
                         contents: [
                             {
                                 type: "text",
-                                text: "ความคิดเห็นของคุณมีค่ามากสำหรับเรา เราจะนำไปปรับปรุงบริการต่อไป",
+                                text: "We will continue improving our service for you.",
                                 size: "sm",
-                                color: "#553734",
+                                color: COLORS.primary,
                                 wrap: true,
                                 align: "center"
                             }
                         ],
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F5F2ED",
-                        cornerRadius: "8px"
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.soft,
+                        cornerRadius: FLEX_THEME.radius
                     }
-                ],
-                spacing: "md",
-                paddingAll: "20px"
+                ]
             }
         }
     };

@@ -178,12 +178,25 @@ export default function CreateBookingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {roomTypes.map(rt => {
                             const isSelected = selectedRoomTypeId === rt.id;
+                            const coverImage = rt.imageUrls?.find((url) => Boolean(url));
                             return (
                                 <div key={rt.id} onClick={() => { setSelectedRoomTypeId(rt.id!); setSelectedRoomId(''); }}
                                     className={`cursor-pointer border rounded-lg p-4 flex gap-4 transition-all duration-200 ${isSelected ? 'shadow-md scale-[1.01]' : 'hover:bg-gray-50 border-gray-200'}`}
                                     style={isSelected ? { backgroundColor: '#1f2937', color: 'white', borderColor: '#1f2937' } : {}}
                                 >
-                                    <div className="w-16 h-16 bg-gray-200 rounded-md object-cover flex-shrink-0"></div>
+                                    <div className="w-16 h-16 bg-gray-200 rounded-md overflow-hidden flex-shrink-0">
+                                        {coverImage ? (
+                                            <img
+                                                src={coverImage}
+                                                alt={rt.name || 'Room image'}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500">
+                                                No image
+                                            </div>
+                                        )}
+                                    </div>
                                     <div>
                                         <div className={`font-medium text-lg ${isSelected ? 'text-white' : 'text-gray-900'}`}>{rt.name || 'Room Name'}</div>
                                         <div className={`text-sm ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>{rt.basePrice?.toLocaleString()} บาท/คืน</div>

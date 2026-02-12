@@ -7,6 +7,7 @@ import { submitReview } from '@/app/actions/reviewActions';
 import { createReviewThankYouFlexTemplate } from '@/app/actions/flexTemplateActions';
 import { db } from '@/app/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { ReviewQuestion } from '@/types';
 
 // Star Rating Component
 const StarRating = ({ rating, setRating }: { rating: number, setRating: (val: number) => void }) => {
@@ -42,6 +43,52 @@ const StarRating = ({ rating, setRating }: { rating: number, setRating: (val: nu
     );
 };
 
+const QuestionScoreSelector = ({
+    value,
+    onChange,
+}: {
+    value: number;
+    onChange: (score: number) => void;
+}) => {
+    return (
+        <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((score) => (
+                <button
+                    key={score}
+                    type="button"
+                    onClick={() => onChange(score)}
+                    className={`w-8 h-8 rounded-full text-xs font-semibold border transition-colors ${
+                        value === score
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-primary'
+                    }`}
+                >
+                    {score}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+const normalizeRoomReviewQuestions = (rawQuestions: any): ReviewQuestion[] => {
+    if (!Array.isArray(rawQuestions)) return [];
+
+    return rawQuestions
+        .map((item: any, index: number) => {
+            if (typeof item === 'string') {
+                const question = item.trim();
+                if (!question) return null;
+                return { id: `q_${index + 1}`, question };
+            }
+
+            const question = typeof item?.question === 'string' ? item.question.trim() : '';
+            if (!question) return null;
+            const id = typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `q_${index + 1}`;
+            return { id, question };
+        })
+        .filter((item: ReviewQuestion | null): item is ReviewQuestion => item !== null);
+};
+
 function ReviewContent() {
     const { liff, profile, loading: liffLoading } = useLiffContext();
     const [rating, setRating] = useState(0);
@@ -50,6 +97,8 @@ function ReviewContent() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [appointment, setAppointment] = useState<any | null>(null);
+    const [roomReviewQuestions, setRoomReviewQuestions] = useState<ReviewQuestion[]>([]);
+    const [questionScores, setQuestionScores] = useState<Record<string, number>>({});
 
     const params = useParams();
     const searchParams = useSearchParams();
@@ -87,7 +136,25 @@ function ReviewContent() {
                     const appointmentRef = doc(db, 'appointments', id);
                     const appointmentSnap = await getDoc(appointmentRef);
                     if (appointmentSnap.exists()) {
-                        setAppointment({ id, ...appointmentSnap.data() });
+                        const appointmentData: any = { id, ...appointmentSnap.data() };
+                        setAppointment(appointmentData);
+
+                        const roomTypeId = appointmentData.roomTypeInfo?.id || appointmentData.bookingInfo?.roomTypeId;
+                        if (appointmentData.bookingType === 'room' && roomTypeId) {
+                            const roomTypeSnap = await getDoc(doc(db, 'roomTypes', roomTypeId));
+                            if (roomTypeSnap.exists()) {
+                                const roomTypeData: any = roomTypeSnap.data();
+                                const normalizedQuestions = normalizeRoomReviewQuestions(roomTypeData.reviewQuestions);
+                                setRoomReviewQuestions(normalizedQuestions);
+                                setQuestionScores({});
+                            } else {
+                                setRoomReviewQuestions([]);
+                                setQuestionScores({});
+                            }
+                        } else {
+                            setRoomReviewQuestions([]);
+                            setQuestionScores({});
+                        }
                     } else {
                         setError('ไม่พบข้อมูลการนัดหมาย');
                     }
@@ -110,6 +177,14 @@ function ReviewContent() {
             return;
         }
 
+        if (roomReviewQuestions.length > 0) {
+            const hasIncompleteAnswer = roomReviewQuestions.some((question) => !questionScores[question.id]);
+            if (hasIncompleteAnswer) {
+                setError('Please answer all room review questions.');
+                return;
+            }
+        }
+
         if (!profile?.userId || !appointment) {
             setError('ไม่สามารถระบุตัวตนหรือข้อมูลการนัดหมายได้');
             return;
@@ -124,6 +199,12 @@ function ReviewContent() {
         setError('');
 
         try {
+            const questionAnswers = roomReviewQuestions.map((question) => ({
+                id: question.id,
+                question: question.question,
+                score: Number(questionScores[question.id] || 0),
+            })).filter((item) => item.score > 0);
+
             const reviewData = {
                 appointmentId: appointment.id,
                 userId: profile.userId,
@@ -131,8 +212,11 @@ function ReviewContent() {
                 userPicture: profile.pictureUrl,
                 rating,
                 comment: comment.trim(),
-                serviceId: appointment.serviceId,
-                technicianId: appointment.technicianId,
+                serviceId: appointment.serviceInfo?.id || appointment.roomTypeInfo?.id || appointment.bookingInfo?.roomTypeId,
+                technicianId: appointment.technicianId || appointment.appointmentInfo?.technicianId || null,
+                roomTypeId: appointment.roomTypeInfo?.id || appointment.bookingInfo?.roomTypeId || null,
+                roomTypeName: appointment.roomTypeInfo?.name || appointment.serviceInfo?.name || null,
+                questionAnswers,
                 createdAt: new Date().toISOString()
             };
 
@@ -256,7 +340,7 @@ function ReviewContent() {
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between items-start pb-2 border-b border-gray-50">
                                 <span className="text-gray-500">บริการ</span>
-                                <span className="text-gray-800 font-medium text-right ml-4">{appointment.serviceInfo?.name}</span>
+                                <span className="text-gray-800 font-medium text-right ml-4">{appointment.roomTypeInfo?.name || appointment.serviceInfo?.name || '-'}</span>
                             </div>
                             <div className="flex justify-between items-center pb-2 border-b border-gray-50">
                                 <span className="text-gray-500">ช่างผู้ให้บริการ</span>
@@ -285,6 +369,32 @@ function ReviewContent() {
                                 {rating > 0 ? (rating === 5 ? 'ดีเยี่ยม! 🤩' : rating === 4 ? 'ดีมาก 😊' : rating === 3 ? 'ปานกลาง 🙂' : rating === 2 ? 'พอใช้ 😐' : 'ควรปรับปรุง 🙁') : ''}
                             </p>
                         </div>
+
+                        {roomReviewQuestions.length > 0 && (
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    แบบสอบถามห้องพัก
+                                </label>
+                                <div className="space-y-3">
+                                    {roomReviewQuestions.map((question, index) => (
+                                        <div key={question.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                            <p className="text-sm text-gray-700 mb-2">
+                                                {index + 1}. {question.question}
+                                            </p>
+                                            <QuestionScoreSelector
+                                                value={questionScores[question.id] || 0}
+                                                onChange={(score) =>
+                                                    setQuestionScores((prev) => ({
+                                                        ...prev,
+                                                        [question.id]: score,
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Comment */}
                         <div>
@@ -317,7 +427,12 @@ function ReviewContent() {
                         <div className="space-y-3 pt-2">
                             <button
                                 type="submit"
-                                disabled={isSubmitting || rating === 0}
+                                disabled={
+                                    isSubmitting ||
+                                    rating === 0 ||
+                                    (roomReviewQuestions.length > 0 &&
+                                        roomReviewQuestions.some((question) => !questionScores[question.id]))
+                                }
                                 className="w-full bg-primary text-white py-4 rounded-2xl font-semibold shadow-sm hover:shadow-md hover:bg-primary-dark disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed transition-all transform active:scale-95"
                             >
                                 {isSubmitting ? (
@@ -366,3 +481,5 @@ export default function ReviewPage() {
         </Suspense>
     );
 }
+
+

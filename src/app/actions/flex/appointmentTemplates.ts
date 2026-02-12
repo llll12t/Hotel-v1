@@ -1,548 +1,362 @@
 "use server";
+
 import { getShopProfile } from '../settingsActions';
-import { formatServiceName } from './helpers';
+import {
+    FLEX_THEME,
+    createFlexHeader,
+    createFlexInfoCard,
+    createSimpleNoticeFlex,
+    formatServiceName,
+    formatThaiDate,
+} from './helpers';
+
+const COLORS = FLEX_THEME.colors;
+
+const summaryRow = (label: string, value: string, valueFlex = 3) => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+        {
+            type: "text",
+            text: label,
+            size: "sm",
+            color: COLORS.muted,
+            flex: 2
+        },
+        {
+            type: "text",
+            text: value,
+            size: "sm",
+            color: COLORS.text,
+            flex: valueFlex,
+            align: "end",
+            wrap: true
+        }
+    ]
+});
+
+const getCustomerName = (customerInfo: any) => customerInfo?.fullName || customerInfo?.firstName || 'Customer';
+
 export async function createAppointmentConfirmedFlexTemplate(appointmentData: any) {
-    const { serviceInfo, customerInfo, date, time, appointmentInfo } = appointmentData;
-    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
-    const serviceName = formatServiceName(serviceInfo);
-    const technicianName = appointmentInfo?.technicianInfo?.firstName || appointmentInfo?.technician || 'จะแจ้งให้ทราบ';
-    const appointmentDate = new Date(date).toLocaleDateString('th-TH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
+    const { serviceInfo, customerInfo, date, time, appointmentInfo } = appointmentData || {};
+    const customerName = getCustomerName(customerInfo);
+    const serviceName = formatServiceName(serviceInfo || {});
+    const technicianName = appointmentInfo?.technicianInfo?.firstName || appointmentInfo?.technician || 'Assigned at branch';
+    const appointmentDate = date ? formatThaiDate(date) : '-';
 
     return {
         type: "flex",
-        altText: `การจองได้รับการยืนยันแล้ว`,
+        altText: "Booking confirmed",
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
+                    ...createFlexHeader("Booking confirmed", COLORS.success),
                     {
                         type: "text",
-                        text: "ยืนยันการจอง",
+                        text: `Dear ${customerName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#4CAF50",
-                        align: "center",
-                        margin: "none"
-                    },
-                    {
-                        type: "separator",
-                        margin: "md",
-                        color: "#4CAF50"
+                        color: COLORS.text
                     },
                     {
                         type: "text",
-                        text: `เรียน ${customerName}`,
-                        weight: "bold",
-                        size: "md",
-                        color: "#333333",
-                        margin: "md"
-                    },
-                    {
-                        type: "text",
-                        text: `การจอง "${serviceName}" ได้รับการยืนยันแล้ว`,
+                        text: "Your booking has been confirmed successfully.",
                         size: "sm",
-                        color: "#666666",
-                        wrap: true,
-                        margin: "sm"
+                        color: COLORS.muted,
+                        wrap: true
                     },
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        contents: [
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "บริการ",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: serviceName,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 3,
-                                        wrap: true,
-                                        align: "end"
-                                    }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "วันที่",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: `${appointmentDate}`,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 2,
-                                        align: "end"
-                                    },
-                                    {
-                                        type: "text",
-                                        text: time,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 1,
-                                        align: "end"
-                                    }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "ช่างผู้ให้บริการ",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: technicianName,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 3,
-                                        align: "end"
-                                    }
-                                ]
-                            }
-                        ],
-                        spacing: "sm",
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F8F8F8",
-                        cornerRadius: "8px"
-                    },
+                    createFlexInfoCard([
+                        summaryRow("Service", serviceName),
+                        summaryRow("Date", `${appointmentDate} ${time || ''}`.trim()),
+                        summaryRow("Technician", technicianName),
+                    ]),
                     {
                         type: "box",
                         layout: "vertical",
                         contents: [
                             {
                                 type: "text",
-                                text: "ขอบคุณที่ไว้ใจเรา ขอให้มีวันที่ยอดเยี่ยม",
+                                text: "Thank you for choosing us.",
                                 size: "sm",
-                                color: "#4CAF50",
+                                color: COLORS.success,
                                 wrap: true,
                                 align: "center"
                             }
                         ],
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#E8F5E8",
-                        cornerRadius: "8px"
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.successSoft,
+                        cornerRadius: FLEX_THEME.radius
                     }
-                ],
-                spacing: "md",
-                paddingAll: "20px"
+                ]
             }
         }
     };
 }
 
 export async function createServiceCompletedFlexTemplate(appointmentData: any) {
-    const { serviceInfo, customerInfo, totalPointsAwarded, note } = appointmentData;
-    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
-    const serviceName = formatServiceName(serviceInfo);
+    const { serviceInfo, customerInfo, totalPointsAwarded, note } = appointmentData || {};
+    const customerName = getCustomerName(customerInfo);
+    const serviceName = formatServiceName(serviceInfo || {});
 
     return {
         type: "flex",
-        altText: `บริการเสร็จสมบูรณ์`,
+        altText: "Service completed",
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
+                    ...createFlexHeader("Service completed"),
                     {
                         type: "text",
-                        text: "บริการเสร็จสมบูรณ์",
+                        text: `Dear ${customerName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#553734",
-                        align: "center",
-                        margin: "none"
-                    },
-                    {
-                        type: "separator",
-                        margin: "md",
-                        color: "#553734"
+                        color: COLORS.text
                     },
                     {
                         type: "text",
-                        text: `เรียน ${customerName}`,
-                        weight: "bold",
-                        size: "md",
-                        color: "#333333",
-                        margin: "md"
-                    },
-                    {
-                        type: "text",
-                        text: `บริการ "${serviceName}" เสร็จสิ้นเรียบร้อยแล้ว`,
-                        size: "md",
-                        color: "#553734",
-                        weight: "bold",
-                        margin: "sm"
-                    },
-                    {
-                        type: "text",
-                        text: "หวังว่าคุณจะพึงพอใจกับบริการของเรา",
+                        text: `Your service "${serviceName}" has been completed.`,
                         size: "sm",
-                        color: "#666666",
-                        wrap: true,
-                        margin: "sm"
+                        color: COLORS.muted,
+                        wrap: true
                     },
-                    ...(totalPointsAwarded && totalPointsAwarded > 0 ? [
-                        {
-                            type: "box",
-                            layout: "horizontal",
-                            contents: [
-                                {
-                                    type: "text",
-                                    text: "พ้อยที่ได้รับ",
-                                    size: "md",
-                                    color: "#666666",
-                                    flex: 0
-                                },
-                                {
-                                    type: "text",
-                                    text: `${totalPointsAwarded} พ้อย`,
-                                    weight: "bold",
-                                    size: "md",
-                                    color: "#553734",
-                                    align: "end"
-                                }
-                            ],
-                            margin: "md",
-                            paddingAll: "12px",
-                            backgroundColor: "#F5F2ED",
-                            cornerRadius: "8px"
-                        }
-                    ] : []),
-                    ...(note && note.trim() ? [
-                        {
-                            type: "box",
-                            layout: "vertical",
-                            contents: [
-                                {
-                                    type: "text",
-                                    text: note.trim(),
-                                    size: "sm",
-                                    color: "#333333",
-                                    wrap: true,
-                                    align: "center",
-                                    weight: "bold"
-                                }
-                            ],
-                            margin: "md",
-                            paddingAll: "12px",
-                            backgroundColor: "#E8F5E8",
-                            cornerRadius: "8px"
-                        }
-                    ] : []),
+                    ...(totalPointsAwarded && Number(totalPointsAwarded) > 0 ? [{
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            {
+                                type: "text",
+                                text: "Points earned",
+                                size: "md",
+                                color: COLORS.muted,
+                                flex: 0
+                            },
+                            {
+                                type: "text",
+                                text: `${Number(totalPointsAwarded)} pts`,
+                                weight: "bold",
+                                size: "md",
+                                color: COLORS.primary,
+                                align: "end"
+                            }
+                        ],
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.soft,
+                        cornerRadius: FLEX_THEME.radius
+                    }] : []),
+                    ...(note && note.trim() ? [{
+                        type: "box",
+                        layout: "vertical",
+                        contents: [
+                            {
+                                type: "text",
+                                text: note.trim(),
+                                size: "sm",
+                                color: COLORS.text,
+                                wrap: true,
+                                align: "center",
+                                weight: "bold"
+                            }
+                        ],
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.card,
+                        cornerRadius: FLEX_THEME.radius
+                    }] : []),
                     {
                         type: "box",
                         layout: "vertical",
                         contents: [
                             {
                                 type: "text",
-                                text: "ขอบคุณที่ใช้บริการ หากมีข้อเสนอแนะยินดีรับฟังเสมอ",
+                                text: "We appreciate your trust and look forward to serving you again.",
                                 size: "sm",
-                                color: "#553734",
+                                color: COLORS.primary,
                                 wrap: true,
                                 align: "center"
                             }
                         ],
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F5F2ED",
-                        cornerRadius: "8px"
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.soft,
+                        cornerRadius: FLEX_THEME.radius
                     }
-                ],
-                spacing: "md",
-                paddingAll: "20px"
+                ]
             }
         }
     };
 }
 
 export async function createAppointmentCancelledFlexTemplate(appointmentData: any, reason: string) {
-    const { id, serviceInfo, customerInfo, date, time } = appointmentData;
-    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
-    const serviceName = formatServiceName(serviceInfo);
-    const safeId = (id || '').toString();
-    const shortId = safeId ? safeId.substring(0, 8).toUpperCase() : '�';
-    const appointmentDate = new Date(date).toLocaleDateString('th-TH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
+    const { serviceInfo, customerInfo, date, time } = appointmentData || {};
+    const customerName = getCustomerName(customerInfo);
+    const serviceName = formatServiceName(serviceInfo || {});
+    const appointmentDate = date ? formatThaiDate(date) : '-';
 
     return {
         type: "flex",
-        altText: "แจ้งยกเลิกการจอง",
+        altText: "Booking cancelled",
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
+                    ...createFlexHeader("Booking cancelled", COLORS.danger),
                     {
                         type: "text",
-                        text: "ยกเลิกการจอง",
+                        text: `Dear ${customerName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#D32F2F",
-                        align: "center"
-                    },
-                    {
-                        type: "separator",
-                        margin: "md",
-                        color: "#D32F2F"
+                        color: COLORS.text
                     },
                     {
                         type: "text",
-                        text: `เรียน ${customerName}`,
-                        weight: "bold",
-                        size: "md",
-                        color: "#333333",
-                        margin: "md"
-                    },
-                    {
-                        type: "text",
-                        text: `การจอง "${serviceName}" ถูกยกเลิก`,
+                        text: `Your booking for "${serviceName}" has been cancelled.`,
                         size: "sm",
-                        color: "#D32F2F",
-                        wrap: true,
-                        margin: "sm"
+                        color: COLORS.danger,
+                        wrap: true
                     },
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        contents: [
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "วันที่",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 2
-                                    },
-                                    {
-                                        type: "text",
-                                        text: `${appointmentDate}`,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 2,
-                                        align: "end"
-                                    },
-                                    {
-                                        type: "text",
-                                        text: time,
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 1,
-                                        align: "end"
-                                    }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    {
-                                        type: "text",
-                                        text: "เหตุผล",
-                                        size: "sm",
-                                        color: "#666666",
-                                        flex: 1
-                                    },
-                                    {
-                                        type: "text",
-                                        text: reason || "ไม่ได้ระบุ",
-                                        size: "sm",
-                                        color: "#333333",
-                                        flex: 3,
-                                        wrap: true,
-                                        align: "end"
-                                    }
-                                ]
-                            }
-                        ],
-                        spacing: "sm",
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#FFEBEE",
-                        cornerRadius: "8px"
-                    }
-                ],
-                paddingAll: "20px",
-                spacing: "md"
+                    createFlexInfoCard([
+                        summaryRow("Date", `${appointmentDate} ${time || ''}`.trim()),
+                        summaryRow("Reason", reason || "Not specified"),
+                    ], COLORS.dangerSoft),
+                ]
             }
         }
     };
 }
 
 export async function createNewBookingFlexTemplate(appointmentData: any) {
-    // Implement based on js version, simplified for brevity but fully functional structure necessary
-    // ... for now returning basic structure to allow compilation
-    return {
-        type: "flex",
-        altText: "New Booking Template",
-        contents: { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } }
-    }
-}
-
-export async function createAppointmentReminderFlexTemplate(bookingData: any) {
-    return {
-        type: "flex",
-        altText: "Reminder",
-        contents: { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } }
-    }
-}
-
-export async function createDailyAppointmentNotificationFlexTemplate(appointmentData: any) {
-    return {
-        type: "flex",
-        altText: "Daily Notification",
-        contents: { type: "bubble", body: { type: "box", layout: "vertical", contents: [] } }
-    }
-}
-
-export async function createCheckInFlexTemplate(appointmentData: any) {
-    const { customerInfo, bookingInfo, roomTypeInfo, serviceInfo } = appointmentData;
-    const customerName = customerInfo?.fullName || customerInfo?.firstName || 'คุณลูกค้า';
-    const roomName = roomTypeInfo?.name || serviceInfo?.name || 'ห้องพัก';
-    const roomNumber = bookingInfo?.roomNumber || '-';
-    const checkInDate = bookingInfo?.checkInDate || appointmentData?.date || '-';
-    const checkOutDate = bookingInfo?.checkOutDate || '-';
-
-    const { profile } = await getShopProfile();
-    const storeName = profile?.storeName || 'โรงแรมของเรา';
-    const contactPhone = profile?.contactPhone || '-';
-    const address = profile?.address || '-';
+    const { serviceInfo, customerInfo, date, time } = appointmentData || {};
+    const customerName = getCustomerName(customerInfo);
+    const serviceName = formatServiceName(serviceInfo || {});
+    const appointmentDate = date ? formatThaiDate(date) : '-';
 
     return {
         type: "flex",
-        altText: "เช็คอินสำเร็จ",
+        altText: "New booking received",
         contents: {
             type: "bubble",
             size: "mega",
             body: {
                 type: "box",
                 layout: "vertical",
-                spacing: "md",
-                paddingAll: "20px",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
                 contents: [
+                    ...createFlexHeader("Booking received"),
                     {
                         type: "text",
-                        text: "เช็คอินสำเร็จ",
+                        text: `Dear ${customerName}`,
                         weight: "bold",
                         size: "md",
-                        color: "#2563EB",
-                        align: "center"
-                    },
-                    {
-                        type: "separator",
-                        margin: "sm",
-                        color: "#2563EB"
+                        color: COLORS.text
                     },
                     {
                         type: "text",
-                        text: `เรียน ${customerName}`,
-                        weight: "bold",
-                        size: "md",
-                        color: "#333333",
-                        margin: "md"
-                    },
-                    {
-                        type: "text",
-                        text: "ยินดีต้อนรับเข้าพัก ข้อมูลการเข้าพักของคุณดังนี้",
+                        text: "Your booking has been added to our system.",
                         size: "sm",
-                        color: "#666666",
+                        color: COLORS.muted,
                         wrap: true
                     },
+                    createFlexInfoCard([
+                        summaryRow("Service", serviceName),
+                        summaryRow("Date/Time", `${appointmentDate} ${time || ''}`.trim()),
+                    ]),
+                ]
+            }
+        }
+    };
+}
+
+export async function createAppointmentReminderFlexTemplate(bookingData: any) {
+    const customerName = getCustomerName(bookingData?.customerInfo);
+    return createSimpleNoticeFlex(
+        'Appointment reminder',
+        `Hello ${customerName}, this is a reminder for your upcoming appointment.`,
+        'Appointment reminder'
+    );
+}
+
+export async function createDailyAppointmentNotificationFlexTemplate(appointmentData: any) {
+    const customerName = getCustomerName(appointmentData?.customerInfo);
+    return createSimpleNoticeFlex(
+        'Daily appointment summary',
+        `You have appointment activity today for ${customerName}.`,
+        'Daily appointment summary'
+    );
+}
+
+export async function createCheckInFlexTemplate(appointmentData: any) {
+    const { customerInfo, bookingInfo, roomTypeInfo, serviceInfo } = appointmentData || {};
+    const customerName = getCustomerName(customerInfo);
+    const roomName = roomTypeInfo?.name || serviceInfo?.name || 'Room';
+    const roomNumber = bookingInfo?.roomNumber || '-';
+    const checkInDate = bookingInfo?.checkInDate || appointmentData?.date || '-';
+    const checkOutDate = bookingInfo?.checkOutDate || '-';
+
+    const { profile } = await getShopProfile();
+    const storeName = profile?.storeName || 'Our Hotel';
+    const contactPhone = profile?.contactPhone || '-';
+    const address = profile?.address || '-';
+
+    return {
+        type: "flex",
+        altText: "Check-in completed",
+        contents: {
+            type: "bubble",
+            size: "mega",
+            body: {
+                type: "box",
+                layout: "vertical",
+                spacing: FLEX_THEME.bodySpacing,
+                paddingAll: FLEX_THEME.bodyPadding,
+                contents: [
+                    ...createFlexHeader("Check-in completed", COLORS.info),
                     {
-                        type: "box",
-                        layout: "vertical",
-                        spacing: "sm",
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#F8FAFC",
-                        cornerRadius: "8px",
-                        contents: [
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 2 },
-                                    { type: "text", text: roomName, size: "sm", color: "#111827", flex: 3, align: "end", wrap: true }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    { type: "text", text: "เลขห้อง", size: "sm", color: "#666666", flex: 2 },
-                                    { type: "text", text: String(roomNumber), size: "sm", color: "#111827", flex: 3, align: "end" }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    { type: "text", text: "วันที่เข้าพัก", size: "sm", color: "#666666", flex: 2 },
-                                    { type: "text", text: String(checkInDate), size: "sm", color: "#111827", flex: 3, align: "end" }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    { type: "text", text: "วันที่เช็คเอาท์", size: "sm", color: "#666666", flex: 2 },
-                                    { type: "text", text: String(checkOutDate), size: "sm", color: "#111827", flex: 3, align: "end" }
-                                ]
-                            }
-                        ]
+                        type: "text",
+                        text: `Dear ${customerName}`,
+                        weight: "bold",
+                        size: "md",
+                        color: COLORS.text
                     },
+                    {
+                        type: "text",
+                        text: "Welcome. Your stay details are listed below.",
+                        size: "sm",
+                        color: COLORS.muted,
+                        wrap: true
+                    },
+                    createFlexInfoCard([
+                        summaryRow("Room type", String(roomName)),
+                        summaryRow("Room number", String(roomNumber)),
+                        summaryRow("Check-in", String(checkInDate)),
+                        summaryRow("Check-out", String(checkOutDate)),
+                    ]),
                     {
                         type: "box",
                         layout: "vertical",
                         spacing: "xs",
-                        margin: "md",
-                        paddingAll: "12px",
-                        backgroundColor: "#EEF2FF",
-                        cornerRadius: "8px",
+                        paddingAll: FLEX_THEME.sectionPadding,
+                        backgroundColor: COLORS.infoSoft,
+                        cornerRadius: FLEX_THEME.radius,
                         contents: [
-                            { type: "text", text: storeName, size: "sm", weight: "bold", color: "#1F2937", wrap: true },
-                            { type: "text", text: `โทร: ${contactPhone}`, size: "sm", color: "#374151", wrap: true },
-                            { type: "text", text: address, size: "sm", color: "#374151", wrap: true }
+                            { type: "text", text: storeName, size: "sm", weight: "bold", color: COLORS.text, wrap: true },
+                            { type: "text", text: `Phone: ${contactPhone}`, size: "sm", color: COLORS.lightText, wrap: true },
+                            { type: "text", text: address, size: "sm", color: COLORS.lightText, wrap: true }
                         ]
                     }
                 ]

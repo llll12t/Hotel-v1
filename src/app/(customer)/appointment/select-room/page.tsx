@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/app/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useProfile } from '@/context/ProfileProvider';
 import { RoomType } from '@/types';
 import LoadingScreen from '@/app/components/common/LoadingScreen';
@@ -21,6 +21,7 @@ function RoomDetailContent() {
     const incomingCheckOut = searchParams.get('checkOut');
     const incomingGuests = searchParams.get('guests');
     const [roomType, setRoomType] = useState<RoomType | null>(null);
+    const [reviewSummary, setReviewSummary] = useState({ average: 0, total: 0 });
     const [loading, setLoading] = useState(true);
     const { profile, loading: profileLoading } = useProfile();
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -37,6 +38,16 @@ function RoomDetailContent() {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     setRoomType({ id: docSnap.id, ...docSnap.data() } as RoomType);
+
+                    const reviewSnap = await getDocs(
+                        query(collection(db, 'reviews'), where('roomTypeId', '==', id)),
+                    );
+                    const ratings = reviewSnap.docs
+                        .map((reviewDoc) => Number((reviewDoc.data() as any).rating || 0))
+                        .filter((score) => Number.isFinite(score) && score > 0);
+                    const total = ratings.length;
+                    const average = total > 0 ? Number((ratings.reduce((sum, score) => sum + score, 0) / total).toFixed(1)) : 0;
+                    setReviewSummary({ average, total });
                 } else {
                     console.error("Room Type not found");
                     router.push('/appointment');
@@ -105,6 +116,11 @@ function RoomDetailContent() {
                             <div className="space-y-1 text-right">
                                 <p className="text-xs text-gray-500 font-medium">ราคาเริ่มต้น / คืน</p>
                                 <p className="text-lg font-extrabold text-[#232227]">{roomType.basePrice?.toLocaleString()} {profile.currencySymbol || '฿'}</p>
+                                <p className="text-xs font-semibold text-amber-500">
+                                    {reviewSummary.total > 0
+                                        ? `Rating ${reviewSummary.average} (${reviewSummary.total} reviews)`
+                                        : 'No reviews yet'}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -182,3 +198,4 @@ export default function ServiceDetailPage() {
         </Suspense>
     );
 }
+

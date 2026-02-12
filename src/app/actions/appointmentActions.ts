@@ -64,6 +64,96 @@ const isAllNotificationsEnabled = (settings: any) => settings?.allNotifications?
 const isCustomerNotificationsEnabled = (settings: any) =>
     isAllNotificationsEnabled(settings) && settings?.customerNotifications?.enabled !== false;
 
+const toPositiveNumber = (value: any) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+type PointAwardOptions = {
+    source: 'completed' | 'payment_confirmed';
+    includePurchase?: boolean;
+    includeVisit?: boolean;
+};
+
+const awardConfiguredPointsOnce = async (appointmentId: string, appointment: any, options: PointAwardOptions) => {
+    const userId = appointment?.userId;
+    if (!userId) {
+        return { success: true, purchasePoints: 0, visitPoints: 0, totalPoints: 0, skipped: 'missing_user' };
+    }
+
+    const existingPointInfo = appointment?.pointInfo || {};
+    const shouldAwardPurchase = (options.includePurchase ?? true) && existingPointInfo.purchaseAwarded !== true;
+    const shouldAwardVisit = (options.includeVisit ?? true) && existingPointInfo.visitAwarded !== true;
+
+    if (!shouldAwardPurchase && !shouldAwardVisit) {
+        return { success: true, purchasePoints: 0, visitPoints: 0, totalPoints: 0, skipped: 'already_awarded' };
+    }
+
+    const purchaseAmount = toPositiveNumber(appointment?.paymentInfo?.amountPaid) || toPositiveNumber(appointment?.paymentInfo?.totalPrice);
+    let purchasePoints = 0;
+    let visitPoints = 0;
+    let purchaseProcessed = !shouldAwardPurchase;
+    let visitProcessed = !shouldAwardVisit;
+
+    if (shouldAwardPurchase) {
+        if (purchaseAmount > 0) {
+            const purchaseResult = await awardPointsForPurchase(userId, purchaseAmount);
+            if (purchaseResult.success) {
+                purchasePoints = toPositiveNumber(purchaseResult.pointsAwarded);
+                purchaseProcessed = true;
+            } else {
+                console.error(`Purchase points award failed for appointment ${appointmentId}:`, purchaseResult.error);
+            }
+        } else {
+            purchaseProcessed = true;
+        }
+    }
+
+    if (shouldAwardVisit) {
+        const visitResult = await awardPointsForVisit(userId);
+        if (visitResult.success) {
+            visitPoints = toPositiveNumber(visitResult.pointsAwarded);
+            visitProcessed = true;
+        } else {
+            console.error(`Visit points award failed for appointment ${appointmentId}:`, visitResult.error);
+        }
+    }
+
+    if (!purchaseProcessed && !visitProcessed) {
+        return { success: false, error: 'Unable to award points at this time.' };
+    }
+
+    const totalPoints = purchasePoints + visitPoints;
+    const pointUpdateData: any = {
+        updatedAt: FieldValue.serverTimestamp(),
+        'pointInfo.lastAwardSource': options.source,
+        'pointInfo.lastAwardAt': FieldValue.serverTimestamp(),
+    };
+
+    if (purchaseProcessed && shouldAwardPurchase) {
+        pointUpdateData['pointInfo.purchaseAwarded'] = true;
+        pointUpdateData['pointInfo.purchaseAwardedAt'] = FieldValue.serverTimestamp();
+        pointUpdateData['pointInfo.purchaseAwardSource'] = options.source;
+        pointUpdateData['pointInfo.purchaseAmount'] = purchaseAmount;
+        pointUpdateData['pointInfo.purchasePointsAwarded'] = purchasePoints;
+    }
+
+    if (visitProcessed && shouldAwardVisit) {
+        pointUpdateData['pointInfo.visitAwarded'] = true;
+        pointUpdateData['pointInfo.visitAwardedAt'] = FieldValue.serverTimestamp();
+        pointUpdateData['pointInfo.visitAwardSource'] = options.source;
+        pointUpdateData['pointInfo.visitPointsAwarded'] = visitPoints;
+    }
+
+    if (totalPoints > 0) {
+        pointUpdateData['pointInfo.totalPointsAwarded'] = FieldValue.increment(totalPoints);
+    }
+
+    await db.collection('appointments').doc(appointmentId).update(pointUpdateData);
+
+    return { success: true, purchasePoints, visitPoints, totalPoints };
+};
+
 // Re-exporting createAppointmentWithSlotCheck for brevity (it was correct in previous step)
 export async function createAppointmentWithSlotCheck(appointmentData: any, auth?: AuthContext) {
     const { date, time, serviceId, technicianId } = appointmentData;
@@ -444,6 +534,14 @@ export async function createBooking(bookingData: any, auth?: AuthContext) {
         const newRef = db.collection('appointments').doc();
         await newRef.set(finalAppointment);
 
+        if (finalAppointment.customerInfo && (resolvedUserId || finalAppointment.customerInfo.phone)) {
+            try {
+                await findOrCreateCustomer(finalAppointment.customerInfo, resolvedUserId);
+            } catch (customerError) {
+                console.error(`Error creating customer for booking ${newRef.id}:`, customerError);
+            }
+        }
+
         try {
             await sendBookingNotification({
                 customerName: finalAppointment.customerInfo?.fullName || '',
@@ -506,9 +604,7 @@ export async function updateAppointmentStatusByAdmin(appointmentId: string, newS
 
                     // Award points
                     try {
-                        const price = appointment.paymentInfo?.totalPrice || 0;
-                        await awardPointsForPurchase(appointment.userId, price);
-                        await awardPointsForVisit(appointment.userId);
+                        await awardConfiguredPointsOnce(appointmentId, appointment, { source: 'completed' });
                     } catch (e) {
                         console.error("Error awarding points:", e);
                     }
@@ -552,8 +648,36 @@ export async function confirmAppointmentAndPaymentByAdmin(appointmentId: string,
         await appRef.update(updateData);
 
         const updatedApp = { ...currentData, ...updateData, id: appointmentId };
+        const appointmentForPoints = {
+            ...currentData,
+            paymentInfo: {
+                ...(currentData?.paymentInfo || {}),
+                paymentStatus: 'paid',
+                amountPaid: data.amount,
+            },
+        };
 
         await createOrUpdateCalendarEvent(appointmentId, updatedApp);
+
+        if (currentData?.customerInfo && (currentData.userId || currentData.customerInfo.phone)) {
+            try {
+                await findOrCreateCustomer(currentData.customerInfo, currentData.userId);
+            } catch (customerError) {
+                console.error(`Error creating customer for appointment ${appointmentId}:`, customerError);
+            }
+        }
+
+        let pointsAwarded = 0;
+        if (currentData?.bookingType === 'room') {
+            try {
+                const pointResult = await awardConfiguredPointsOnce(appointmentId, appointmentForPoints, { source: 'payment_confirmed' });
+                if (pointResult.success) {
+                    pointsAwarded = pointResult.totalPoints || 0;
+                }
+            } catch (pointError) {
+                console.error(`Error awarding room booking points for appointment ${appointmentId}:`, pointError);
+            }
+        }
 
         const { success: settingsSuccess, settings: notificationSettings } = await settingsActions.getNotificationSettings();
         const canNotifyCustomer =
@@ -565,7 +689,7 @@ export async function confirmAppointmentAndPaymentByAdmin(appointmentId: string,
             await sendPaymentConfirmationFlexMessage(currentData.userId, updatedApp);
         }
 
-        return { success: true };
+        return { success: true, pointsAwarded };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
@@ -710,3 +834,6 @@ export async function cancelAppointmentByUser(appointmentId: string, userId: str
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
+
+
+

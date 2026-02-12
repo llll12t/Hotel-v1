@@ -5,12 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { db } from '@/app/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/app/components/Toast';
-import { useProfile } from '@/context/ProfileProvider';
 import ImageUploadBase64 from '@/app/components/ImageUploadBase64';
 
 const Icons = {
     Back: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>,
-    Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+    Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
 };
 
 export default function EditRoomTypePage() {
@@ -34,14 +33,13 @@ export default function EditRoomTypePage() {
     const router = useRouter();
     const { showToast } = useToast();
 
-    // Fetch Data
     useEffect(() => {
         if (!id) return;
         const fetchData = async () => {
             try {
-                const docSnap = await getDoc(doc(db, "roomTypes", id));
+                const docSnap = await getDoc(doc(db, 'roomTypes', id));
                 if (docSnap.exists()) {
-                    const data = docSnap.data();
+                    const data = docSnap.data() as any;
                     let images = data.imageUrls || [];
                     if (images.length === 0) images = [''];
 
@@ -55,11 +53,11 @@ export default function EditRoomTypePage() {
                         imageUrls: images,
                     });
                 } else {
-                    showToast("ไม่พบข้อมูลประเภทห้องพัก", "error");
+                    showToast('Room type not found', 'error');
                     router.push('/room-types');
                 }
             } catch (e: any) {
-                showToast("Error: " + e.message, "error");
+                showToast('Error: ' + e.message, 'error');
             } finally {
                 setLoading(false);
             }
@@ -67,7 +65,6 @@ export default function EditRoomTypePage() {
         fetchData();
     }, [id, router, showToast]);
 
-    // Handlers
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -82,7 +79,7 @@ export default function EditRoomTypePage() {
                 }
             } else {
                 newImages.splice(index, 1);
-                if (newImages.length === 0) newImages.push(''); // Always keep at least one empty slot if all gone
+                if (newImages.length === 0) newImages.push('');
             }
             return { ...prev, imageUrls: newImages };
         });
@@ -104,7 +101,7 @@ export default function EditRoomTypePage() {
                     onImageChange={(val) => handleImageChange(idx, val)}
                     compact={idx > 0}
                 />
-                {idx === 0 && <p className="text-center text-xs text-gray-500 mt-1 font-medium">รูปหลัก</p>}
+                {idx === 0 && <p className="text-center text-xs text-gray-500 mt-1 font-medium">Main image</p>}
             </div>
         ));
     };
@@ -121,8 +118,8 @@ export default function EditRoomTypePage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name) return showToast("กรุณากรอกชื่อประเภทห้อง", "error");
-        if (!formData.basePrice) return showToast("กรุณากรอกราคาเริ่มต้น", "error");
+        if (!formData.name) return showToast('Please enter room type name', 'error');
+        if (!formData.basePrice) return showToast('Please enter base price', 'error');
 
         const validImages = formData.imageUrls.filter(url => url && url.length > 0);
 
@@ -139,17 +136,17 @@ export default function EditRoomTypePage() {
                 updatedAt: new Date(),
             };
 
-            await updateDoc(doc(db, "roomTypes", id), dataToSave);
-            showToast("บันทึกการแก้ไขสำเร็จ!", "success");
+            await updateDoc(doc(db, 'roomTypes', id), dataToSave);
+            showToast('Room type updated', 'success');
             router.push('/room-types');
         } catch (error: any) {
-            showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+            showToast('Error: ' + error.message, 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-gray-500 focus:border-gray-500";
+    const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-gray-500 focus:border-gray-500';
 
     if (loading) return <div className="flex justify-center items-center min-h-[400px]"><div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin"></div></div>;
 
@@ -157,57 +154,53 @@ export default function EditRoomTypePage() {
         <div className="max-w-5xl mx-auto p-4">
             <div className="flex items-center gap-3 mb-4">
                 <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><Icons.Back /></button>
-                <h1 className="text-xl font-bold text-gray-900">แก้ไขประเภทห้องพัก</h1>
+                <h1 className="text-xl font-bold text-gray-900">Edit room type</h1>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Left Column: Details */}
                     <div className="lg:col-span-2 space-y-4">
-                        {/* 1. Basic Info */}
                         <div className="bg-white border rounded-lg p-4 shadow-sm">
-                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">ข้อมูลเบื้องต้น</h2>
+                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">Basic info</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">ชื่อประเภทห้อง *</label>
-                                    <input name="name" value={formData.name} onChange={handleChange} required className={inputClass} placeholder="เช่น Standard, Deluxe, Suite" />
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Room type name *</label>
+                                    <input name="name" value={formData.name} onChange={handleChange} required className={inputClass} placeholder="Standard, Deluxe, Suite" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">ราคาต่อคืน (บาท) *</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Base price/night *</label>
                                     <input type="number" name="basePrice" value={formData.basePrice} onChange={handleChange} required className={inputClass} placeholder="0" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">ขนาดห้อง (ตร.ม.)</label>
-                                    <input type="number" name="sizeSqM" value={formData.sizeSqM} onChange={handleChange} className={inputClass} placeholder="เช่น 32" />
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Room size (sqm)</label>
+                                    <input type="number" name="sizeSqM" value={formData.sizeSqM} onChange={handleChange} className={inputClass} placeholder="32" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">ผู้เข้าพักสูงสุด (ท่าน)</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Max guests</label>
                                     <input type="number" name="maxGuests" value={formData.maxGuests} onChange={handleChange} className={inputClass} placeholder="2" />
                                 </div>
                             </div>
                         </div>
 
-                        {/* 2. Description & Amenities */}
                         <div className="bg-white border rounded-lg p-4 shadow-sm">
-                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">รายละเอียด & สิ่งอำนวยความสะดวก</h2>
+                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">Description & amenities</h2>
                             <div className="space-y-3">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">คำอธิบายห้องพัก</label>
-                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className={inputClass} placeholder="บรรยายบรรยากาศห้อง, วิว, หรือจุดเด่น..."></textarea>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className={inputClass} placeholder="Room details" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">สิ่งอำนวยความสะดวก</label>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Amenities</label>
                                     <div className="flex gap-2 mb-2">
                                         <input
                                             type="text"
                                             value={amenityInput}
                                             onChange={e => setAmenityInput(e.target.value)}
                                             className="flex-1 px-3 py-1.5 border rounded-md text-sm"
-                                            placeholder="เช่น WiFi, อ่างอาบน้ำ"
+                                            placeholder="WiFi, bathtub"
                                             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAmenity())}
                                         />
-                                        <button type="button" onClick={addAmenity} className="bg-gray-900 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-800">เพิ่ม</button>
+                                        <button type="button" onClick={addAmenity} className="bg-gray-900 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-800">Add</button>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {formData.amenities.map((item, idx) => (
@@ -222,12 +215,11 @@ export default function EditRoomTypePage() {
                         </div>
                     </div>
 
-                    {/* Right Column: Images */}
                     <div className="space-y-4">
                         <div className="bg-white border rounded-lg p-4 shadow-sm">
                             <div className="flex justify-between items-center mb-3 border-b pb-2">
-                                <h2 className="text-base font-semibold text-gray-800">รูปภาพห้องพัก</h2>
-                                <span className="text-xs text-gray-500">{formData.imageUrls.filter(x => x).length}/5 รูป</span>
+                                <h2 className="text-base font-semibold text-gray-800">Room images</h2>
+                                <span className="text-xs text-gray-500">{formData.imageUrls.filter(x => x).length}/5</span>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -237,19 +229,17 @@ export default function EditRoomTypePage() {
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-3 text-center">* รองรับไฟล์ JPG, PNG ขนาดไม่เกิน 5MB</p>
+                            <p className="text-[10px] text-gray-400 mt-3 text-center">* JPG/PNG up to 5MB</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Form Actions */}
                 <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onClick={() => router.back()} className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                    <button type="button" onClick={() => router.back()} className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
                     <button type="submit" disabled={saving} className="px-8 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-lg">
-                        {saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+                        {saving ? 'Saving...' : 'Save'}
                     </button>
                 </div>
-
             </form>
         </div>
     );

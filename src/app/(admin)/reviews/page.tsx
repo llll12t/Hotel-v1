@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/app/lib/firebase';
-import { collection, getDocs, query, orderBy, limit, startAfter, where, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, getDoc, updateDoc, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { ReviewQuestion } from '@/types';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -61,7 +62,46 @@ export default function ReviewsPage() {
     const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [ratingFilter, setRatingFilter] = useState<string | number>('all');
+    const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all');
+    const [roomTypeOptions, setRoomTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
+    const [questionRoomTypeId, setQuestionRoomTypeId] = useState<string>('');
+    const [questionInput, setQuestionInput] = useState('');
+    const [reviewQuestions, setReviewQuestions] = useState<ReviewQuestion[]>([]);
+    const [questionStatus, setQuestionStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [search, setSearch] = useState('');
+
+    const normalizeQuestions = (value: any): ReviewQuestion[] => {
+        if (!Array.isArray(value)) return [];
+        return value
+            .map((item: any, index: number) => {
+                if (typeof item === 'string') {
+                    const question = item.trim();
+                    if (!question) return null;
+                    return { id: `q_${index + 1}`, question };
+                }
+                const question = typeof item?.question === 'string' ? item.question.trim() : '';
+                if (!question) return null;
+                const id = typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `q_${index + 1}`;
+                return { id, question };
+            })
+            .filter((item: ReviewQuestion | null): item is ReviewQuestion => item !== null);
+    };
+
+    const addQuestion = () => {
+        const question = questionInput.trim();
+        if (!question) return;
+        setReviewQuestions((prev) => [
+            ...prev,
+            { id: `q_${Date.now()}_${prev.length + 1}`, question },
+        ]);
+        setQuestionInput('');
+        setQuestionStatus('idle');
+    };
+
+    const removeQuestion = (id: string) => {
+        setReviewQuestions((prev) => prev.filter((item) => item.id !== id));
+        setQuestionStatus('idle');
+    };
 
     // Fetch stats (summary) - only once
     const fetchStats = useCallback(async () => {
@@ -121,6 +161,64 @@ export default function ReviewsPage() {
     // Initial load
     useEffect(() => { fetchStats(); }, [fetchStats]);
 
+    useEffect(() => {
+        const fetchRoomTypes = async () => {
+            try {
+                const snap = await getDocs(collection(db, 'roomTypes'));
+                const options = snap.docs.map((item) => ({
+                    id: item.id,
+                    name: (item.data() as any).name || item.id,
+                }));
+                const sortedOptions = options.sort((a, b) => a.name.localeCompare(b.name));
+                setRoomTypeOptions(sortedOptions);
+                if (!questionRoomTypeId && sortedOptions.length > 0) {
+                    setQuestionRoomTypeId(sortedOptions[0].id);
+                }
+            } catch (err) {
+                console.error('Error fetching room types:', err);
+            }
+        };
+        fetchRoomTypes();
+    }, [questionRoomTypeId]);
+
+    useEffect(() => {
+        if (!questionRoomTypeId) {
+            setReviewQuestions([]);
+            return;
+        }
+        const fetchQuestions = async () => {
+            try {
+                const roomTypeSnap = await getDoc(doc(db, 'roomTypes', questionRoomTypeId));
+                if (!roomTypeSnap.exists()) {
+                    setReviewQuestions([]);
+                    return;
+                }
+                const roomTypeData = roomTypeSnap.data() as any;
+                setReviewQuestions(normalizeQuestions(roomTypeData.reviewQuestions));
+                setQuestionStatus('idle');
+            } catch (err) {
+                console.error('Error fetching review questions:', err);
+                setReviewQuestions([]);
+                setQuestionStatus('error');
+            }
+        };
+        fetchQuestions();
+    }, [questionRoomTypeId]);
+
+    const saveQuestions = async () => {
+        if (!questionRoomTypeId) return;
+        setQuestionStatus('saving');
+        try {
+            await updateDoc(doc(db, 'roomTypes', questionRoomTypeId), {
+                reviewQuestions,
+            });
+            setQuestionStatus('saved');
+        } catch (err) {
+            console.error('Error saving review questions:', err);
+            setQuestionStatus('error');
+        }
+    };
+
     // Reset and fetch when filter changes
     useEffect(() => {
         setLastDoc(null);
@@ -129,13 +227,24 @@ export default function ReviewsPage() {
     }, [ratingFilter]);
 
     // Client-side search filter (on already loaded data)
-    const filteredReviews = search
-        ? reviews.filter(r =>
-            (r.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-            (r.comment || '').toLowerCase().includes(search.toLowerCase()) ||
-            (r.serviceName || '').toLowerCase().includes(search.toLowerCase())
-        )
-        : reviews;
+    const filteredReviews = reviews.filter((review) => {
+        const matchesRoomType =
+            roomTypeFilter === 'all' ||
+            (roomTypeFilter === 'none'
+                ? !review.roomTypeId
+                : (review.roomTypeId || '') === roomTypeFilter);
+
+        const searchText = search.trim().toLowerCase();
+        if (!searchText) return matchesRoomType;
+
+        const matchesSearch =
+            (review.customerName || '').toLowerCase().includes(searchText) ||
+            (review.comment || '').toLowerCase().includes(searchText) ||
+            (review.serviceName || '').toLowerCase().includes(searchText) ||
+            (review.roomTypeName || '').toLowerCase().includes(searchText);
+
+        return matchesRoomType && matchesSearch;
+    });
 
     const handleLoadMore = () => {
         if (!loadingMore && hasMore) fetchReviews(true);
@@ -154,12 +263,95 @@ export default function ReviewsPage() {
             {/* Summary Section */}
             <ReviewSummary stats={stats} />
 
+            <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                <div className="flex flex-col md:flex-row md:items-end gap-3">
+                    <div className="w-full md:w-72">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Manage room review questions</label>
+                        <select
+                            value={questionRoomTypeId}
+                            onChange={(e) => setQuestionRoomTypeId(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700"
+                        >
+                            <option value="">Select room type</option>
+                            {roomTypeOptions.map((roomType) => (
+                                <option key={roomType.id} value={roomType.id}>
+                                    {roomType.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Add question</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={questionInput}
+                                onChange={(e) => setQuestionInput(e.target.value)}
+                                placeholder="Room cleanliness, comfort, etc."
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addQuestion())}
+                            />
+                            <button
+                                type="button"
+                                onClick={addQuestion}
+                                disabled={!questionRoomTypeId}
+                                className="px-4 py-2 rounded-md text-sm bg-gray-900 text-white disabled:opacity-50"
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={saveQuestions}
+                        disabled={!questionRoomTypeId || questionStatus === 'saving'}
+                        className="px-4 py-2 rounded-md text-sm bg-blue-600 text-white disabled:opacity-50"
+                    >
+                        {questionStatus === 'saving' ? 'Saving...' : 'Save questions'}
+                    </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                    {reviewQuestions.length === 0 ? (
+                        <p className="text-xs text-gray-400">No questions for this room type.</p>
+                    ) : (
+                        reviewQuestions.map((item, index) => (
+                            <div key={item.id} className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                                <span className="text-sm text-gray-700">{index + 1}. {item.question}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => removeQuestion(item.id)}
+                                    className="text-xs text-red-600 hover:underline"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+                {questionStatus === 'saved' && <p className="text-xs text-green-600 mt-2">Questions saved.</p>}
+                {questionStatus === 'error' && <p className="text-xs text-red-600 mt-2">Failed to save questions.</p>}
+            </div>
+
             {/* Controls */}
             <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white border border-gray-200 rounded-lg p-4 mb-6">
                 <div className="relative w-full md:w-80">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Icons.Search /></div>
                     <input type="text" placeholder="ค้นหาในรายการที่โหลดแล้ว..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
+                <select
+                    value={roomTypeFilter}
+                    onChange={(e) => setRoomTypeFilter(e.target.value)}
+                    className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="all">ทุกประเภทห้อง</option>
+                    <option value="none">ไม่ระบุประเภทห้อง</option>
+                    {roomTypeOptions.map((roomType) => (
+                        <option key={roomType.id} value={roomType.id}>
+                            {roomType.name}
+                        </option>
+                    ))}
+                </select>
                 <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto">
                     <button onClick={() => setRatingFilter('all')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${ratingFilter === 'all' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>ทั้งหมด</button>
                     {[5, 4, 3, 2, 1].map(star => (
@@ -203,6 +395,10 @@ export default function ReviewsPage() {
                                         <span className="font-medium text-gray-900 truncate max-w-[150px]">{review.serviceName || '-'}</span>
                                     </div>
                                     <div className="flex justify-between text-xs">
+                                        <span className="text-gray-500">Room type:</span>
+                                        <span className="font-medium text-gray-900 truncate max-w-[150px]">{review.roomTypeName || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
                                         <span className="text-gray-500">ช่าง:</span>
                                         <span className="font-medium text-gray-900">{review.technicianName || '-'}</span>
                                     </div>
@@ -235,3 +431,4 @@ export default function ReviewsPage() {
         </div>
     );
 }
+

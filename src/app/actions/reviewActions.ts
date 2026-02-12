@@ -5,6 +5,12 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { sendReviewThankYouFlexMessage } from './lineFlexActions';
 import { AuthContext, requireLineAuth } from '@/app/lib/authUtils';
 
+type ReviewAnswer = {
+    id?: string;
+    question: string;
+    score: number;
+};
+
 /**
  * Submits a review for a completed appointment.
  * @param {object} reviewData - The review data from the form.
@@ -16,10 +22,15 @@ import { AuthContext, requireLineAuth } from '@/app/lib/authUtils';
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function submitReview(reviewData: any, auth?: AuthContext) {
-    const { appointmentId, userId, technicianId, rating, comment } = reviewData;
+    const { appointmentId, userId, technicianId, rating, comment, questionAnswers } = reviewData;
+    const numericRating = Number(rating);
 
-    if (!appointmentId || !userId || !rating) {
+    if (!appointmentId || !userId || !numericRating) {
         return { success: false, error: 'ข้อมูลที่จำเป็นไม่ครบถ้วน' };
+    }
+
+    if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+        return { success: false, error: 'Invalid rating score.' };
     }
 
     const lineAuth = await requireLineAuth(auth);
@@ -69,6 +80,33 @@ export async function submitReview(reviewData: any, auth?: AuthContext) {
                 throw new Error('ข้อมูลลูกค้าในนัดหมายไม่สมบูรณ์ กรุณาติดต่อแอดมิน');
             }
 
+            const bookingType = appointmentData.bookingType === 'room' ? 'room' : 'service';
+            const roomTypeId = appointmentData.roomTypeInfo?.id || appointmentData.bookingInfo?.roomTypeId || null;
+            const roomTypeName = appointmentData.roomTypeInfo?.name || appointmentData.serviceInfo?.name || null;
+            const serviceName = appointmentData.serviceInfo?.name || roomTypeName || null;
+            const technicianName =
+                appointmentData.appointmentInfo?.technicianName ||
+                `${appointmentData.appointmentInfo?.technicianInfo?.firstName || ''} ${appointmentData.appointmentInfo?.technicianInfo?.lastName || ''}`.trim() ||
+                null;
+
+            const normalizedQuestionAnswers: ReviewAnswer[] = [];
+            if (Array.isArray(questionAnswers)) {
+                questionAnswers.forEach((item: any, index: number) => {
+                    const score = Number(item?.score);
+                    const question = typeof item?.question === 'string' ? item.question.trim() : '';
+                    if (!question || !Number.isFinite(score) || score < 1 || score > 5) return;
+
+                    normalizedQuestionAnswers.push({
+                        id: typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `q_${index + 1}`,
+                        question,
+                        score,
+                    });
+                });
+            }
+            const questionnaireAverage = normalizedQuestionAnswers.length > 0
+                ? Number((normalizedQuestionAnswers.reduce((sum, current) => sum + current.score, 0) / normalizedQuestionAnswers.length).toFixed(2))
+                : null;
+
             let customerDoc = null;
             let currentPoints = 0;
             const customerRef = db.collection('customers').doc(userId);
@@ -84,16 +122,27 @@ export async function submitReview(reviewData: any, auth?: AuthContext) {
                 appointmentId,
                 userId,
                 technicianId: technicianId || null,
+                technicianName,
                 customerName: appointmentData.customerInfo.fullName || appointmentData.customerInfo.name,
-                rating: Number(rating),
+                rating: numericRating,
                 comment: comment || '',
+                bookingType,
+                serviceName,
+                roomTypeId,
+                roomTypeName,
+                questionAnswers: normalizedQuestionAnswers,
+                questionnaireAverage,
                 pointsAwarded: pointsToAward,
                 createdAt: FieldValue.serverTimestamp(),
             });
 
             transaction.update(appointmentRef, {
                 'reviewInfo.submitted': true,
-                'reviewInfo.rating': Number(rating),
+                'reviewInfo.rating': numericRating,
+                'reviewInfo.roomTypeId': roomTypeId,
+                'reviewInfo.roomTypeName': roomTypeName,
+                'reviewInfo.questionAnswers': normalizedQuestionAnswers,
+                'reviewInfo.questionnaireAverage': questionnaireAverage,
                 'reviewInfo.pointsAwarded': pointsToAward,
                 updatedAt: FieldValue.serverTimestamp(),
             });
