@@ -139,7 +139,7 @@ function RoomDetailContent() {
     const amenitiesList = (roomType as any).amenities || ["Bathroom", "Wifi", "Parking"];
 
     return (
-        <div className="min-h-screen bg-[#F6F6F6] font-sans">
+        <div className="min-h-screen bg-[#F6F6F6] font-sans pb-32">
 
             <div className="p-4">
                 {/* Image & Gallery */}
@@ -236,7 +236,7 @@ function RoomDetailContent() {
             </div>
 
             {/* Bottom Button */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5 z-50 rounded-t-[32px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                 <div className="max-w-md mx-auto">
                     <button
                         onClick={handleConfirm}

@@ -145,7 +145,7 @@ function GuestInfoContent() {
   if (!roomTypeId) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
+    <div className="min-h-screen bg-[#f8f9fa] pb-32">
       <div className="p-4">
         {/* Summary Card */}
         <div className="bg-white rounded-xl p-5 mb-4 border border-gray-100">
@@ -227,7 +227,7 @@ function GuestInfoContent() {
       </div>
 
       {/* Bottom Bar (Fixed) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 z-50">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <div className="max-w-md mx-auto">
           <button
             onClick={handleContinue}

@@ -307,7 +307,7 @@ function ReviewConfirmContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F6F6] pb-24 font-sans p-4">
+    <div className="min-h-screen bg-[#F6F6F6] pb-32 font-sans p-4">
 
       {/* Combined Room & Booking Details Card */}
       <div className="bg-white rounded-xl p-5 mb-2  border border-gray-100">
@@ -434,7 +434,7 @@ function ReviewConfirmContent() {
       </div>
 
       {/* Bottom Confirm Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50 rounded-t-[32px]">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <button
           onClick={handleConfirm}
           disabled={isSubmitting}
