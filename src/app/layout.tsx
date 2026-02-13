@@ -18,7 +18,7 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "Booking System",
+  title: "3RN STUDIO",
   description: "ระบบจองห้องพัก",
 };
 
@@ -36,7 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${barlow.variable} ${notoSansThai.variable} antialiased bg-background text-foreground`}>
+      <body className={`${barlow.variable} ${notoSansThai.variable} antialiased bg-[var(--background)] text-foreground`}>
         <ToastProvider>
           {children}
         </ToastProvider>

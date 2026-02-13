@@ -140,7 +140,7 @@ export default function LoginPage() {
         <main className="flex items-center justify-center min-h-screen bg-gray-50 border-t-4 border-gray-900">
             <div className="w-full max-w-sm p-6 bg-white rounded-2xl shadow-lg border border-gray-100">
                 <div className="text-center mb-6">
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">{storeName || 'SPA & MASSAGE'}</h1>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">{storeName || 'ระบบจองห้องพัก'}</h1>
                     <p className="text-gray-500 mt-1 text-xs font-medium">เข้าสู่ระบบสำหรับผู้ดูแล</p>
                 </div>
 
@@ -167,7 +167,7 @@ export default function LoginPage() {
                             id="password-admin"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="��������"
+                            placeholder="รหัสผ่าน"
                             required
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all outline-none text-gray-800 placeholder-gray-400"
                         />
