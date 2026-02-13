@@ -120,7 +120,7 @@ export default function MyAppointmentsPage() {
     if (liffError) return <div className="p-4 text-center text-[var(--error)]">LIFF Error: {liffError}</div>;
 
     return (
-        <div className="min-h-screen bg-[#f6f6f6] text-gray-900 font-sans">
+        <div className="min-h-screen bg-[#F6F6F6] text-gray-900 font-sans">
             <CustomerHeader showBackButton={true} showActionButtons={false} />
             <div className="p-4 space-y-5 pb-20">
                 <Notification {...notification} />

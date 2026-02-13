@@ -223,7 +223,7 @@ export default function AppointmentPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f6f6] font-sans">
+        <div className="min-h-screen bg-[#F6F6F6] font-sans pb-32">
             {/* Header */}
             <CustomerHeader showBackButton={true} />
 

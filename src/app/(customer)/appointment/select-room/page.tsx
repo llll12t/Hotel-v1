@@ -139,7 +139,7 @@ function RoomDetailContent() {
     const amenitiesList = (roomType as any).amenities || ["Bathroom", "Wifi", "Parking"];
 
     return (
-        <div className="bg-[#F6F6F6] font-sans">
+        <div className="min-h-screen bg-[#F6F6F6] font-sans pb-32">
 
             <div className="p-4">
                 {/* Image & Gallery */}
@@ -263,4 +263,3 @@ export default function ServiceDetailPage() {
         </Suspense>
     );
 }
-
