@@ -121,26 +121,26 @@ const createBookingSuccessFlex = (payload: {
       },
       ...(paymentUrl
         ? {
-            footer: {
-              type: "box",
-              layout: "vertical",
-              spacing: "sm",
-              paddingAll: "20px",
-              contents: [
-                {
-                  type: "button",
-                  style: "primary",
-                  height: "sm",
-                  color: "#553734",
-                  action: {
-                    type: "uri",
-                    label: "ชำระเงิน",
-                    uri: paymentUrl,
-                  },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            paddingAll: "20px",
+            contents: [
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                color: "#553734",
+                action: {
+                  type: "uri",
+                  label: "ชำระเงิน",
+                  uri: paymentUrl,
                 },
-              ],
-            },
-          }
+              },
+            ],
+          },
+        }
         : {}),
     },
   };
@@ -237,10 +237,14 @@ function ReviewConfirmContent() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "dd/MM/yyyy", { locale: th });
+      return format(new Date(dateStr), "dd MMM", { locale: th });
     } catch {
       return dateStr;
     }
+  };
+
+  const handleEditSearch = () => {
+    router.push('/appointment');
   };
 
   const handleBackToGuestInfo = () => {
@@ -257,7 +261,7 @@ function ReviewConfirmContent() {
     params.set("note", note);
     if (selectedCouponId) params.set("couponId", selectedCouponId);
     router.push(`/appointment/guest-info?${params.toString()}`);
-  };
+  }
 
   const handleConfirm = async () => {
     if (!profile?.userId) {
@@ -285,13 +289,7 @@ function ReviewConfirmContent() {
         rooms: Math.max(1, roomsCount),
         guests: Number.isFinite(guests) ? guests : 1,
         status: "pending",
-        customerInfo: {
-          fullName,
-          phone,
-          email,
-          note,
-          pictureUrl: profile.pictureUrl || "",
-        },
+        customerInfo: { fullName, phone, email, note, pictureUrl: profile.pictureUrl || "" },
         paymentInfo: {
           originalPrice: originalTotalPrice,
           totalPrice: finalTotalPrice,
@@ -340,148 +338,129 @@ function ReviewConfirmContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)] pb-36">
-      <div className="mx-auto max-w-lg space-y-4 p-4">
-
-        <div className="rounded-2xl bg-[var(--card)] p-4 shadow-sm border border-[var(--border)]">
-          <h3 className="font-semibold mb-2">ข้อมูลผู้เข้าพัก</h3>
-          <div className="text-sm space-y-1 text-[var(--text-muted)]">
-            <div>ชื่อ: <span className="text-[var(--text)] font-medium">{fullName || "-"}</span></div>
-            <div>โทร: <span className="text-[var(--text)] font-medium">{phone || "-"}</span></div>
-            <div>อีเมล: <span className="text-[var(--text)] font-medium">{email || "-"}</span></div>
-            {note ? <div>หมายเหตุ: <span className="text-[var(--text)] font-medium">{note}</span></div> : null}
-          </div>
-          <button
-            type="button"
-            onClick={handleBackToGuestInfo}
-            className="mt-3 text-xs font-semibold text-[var(--primary)] underline"
-          >
-            แก้ไขข้อมูลผู้เข้าพัก
-          </button>
-        </div>
-
-        <div className="rounded-2xl bg-[var(--card)] overflow-hidden shadow-sm border border-[var(--border)]">
-          <div className="p-4 space-y-3">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-[var(--text-muted)]">เช็คอิน</span>
-              <span className="font-bold">{formatDate(checkIn)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-[var(--text-muted)]">เช็คเอาท์</span>
-              <span className="font-bold">{formatDate(checkOut)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-[var(--text-muted)]">จำนวนคืน</span>
-              <span className="font-bold">{nights} คืน</span>
-            </div>
-            <hr className="border-[var(--border)] my-2" />
-            <div className="flex justify-between items-start">
-              <span className="text-[var(--text-muted)] text-sm">ประเภทห้อง</span>
-              <div className="text-right">
-                <div className="font-bold">{roomType?.name}</div>
-                <div className="text-xs text-[var(--text-muted)]">
-                  ราคา/คืน/ห้อง {basePrice.toLocaleString()} {roomType?.currencySymbol || "฿"}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-[var(--text-muted)]">จำนวนห้อง</span>
-              <span className="font-bold">{roomsCount}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-[var(--text-muted)]">ผู้เข้าพัก</span>
-              <span className="font-bold">{guests}</span>
-            </div>
-          </div>
-
-          <div className="bg-[var(--background)] px-4 py-4 border-t border-[var(--border)]">
-            <div className="flex justify-between items-center text-sm text-[var(--text-muted)] mb-1">
-              <span>ยอดรวม</span>
-              <span>{originalTotalPrice.toLocaleString()} {roomType?.currencySymbol || "฿"}</span>
-            </div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between items-center text-sm text-[var(--success)] mb-2">
-                <span>ส่วนลด</span>
-                <span>-{discountAmount.toLocaleString()} {roomType?.currencySymbol || "฿"}</span>
-              </div>
+    <div className="min-h-screen bg-[#f8f9fa] pb-40">
+      <div className="px-5 pt-6">
+        {/* 1. Room Preview Card */}
+        <div className="bg-white rounded-3xl p-4 flex gap-4 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100">
+          <div className="w-24 h-24 flex-shrink-0 rounded-2xl bg-gray-200 overflow-hidden">
+            {roomType?.imageUrls?.[0] ? (
+              <img src={roomType.imageUrls[0]} alt={roomType.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>
             )}
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-[var(--text)] font-bold text-lg">ยอดสุทธิ</span>
-              <span className="text-[var(--primary)] font-bold text-xl">
-                {finalTotalPrice.toLocaleString()} {roomType?.currencySymbol || "฿"}
-              </span>
+          </div>
+          <div className="flex flex-col justify-center min-w-0">
+            <div className="text-xs text-gray-400 font-medium mb-0.5">Hotel Room</div>
+            <h3 className="font-bold text-[#1a1a1a] text-lg truncate mb-1">{roomType?.name}</h3>
+            <div className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+              <span className="text-xs font-bold text-[#1a1a1a]">4.9</span>
+              <span className="text-[10px] text-gray-400">(100+ Reviews)</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-[var(--card)] rounded-2xl p-4 shadow-sm border border-[var(--border)]">
-          <button
-            type="button"
-            onClick={() => setShowCoupon((v) => !v)}
-            className="flex w-full items-center justify-between text-left"
-          >
+        {/* 2. Your Booking */}
+        <h3 className="text-sm font-bold text-[#1a1a1a] mb-3 px-1">Your Booking</h3>
+        <div className="bg-white rounded-3xl p-5 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-4 border border-gray-100">
+          <div className="flex justify-between items-center">
             <div>
-              <div className="text-sm font-semibold text-[var(--text)]">คูปองส่วนลด</div>
-              <div className="text-xs text-[var(--text-muted)]">{availableCoupons.length} ใบ</div>
+              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Dates</p>
+              <p className="font-bold text-[#1a1a1a] text-sm">{formatDate(checkIn)} - {formatDate(checkOut)}</p>
             </div>
-            <span className="text-xs text-[var(--primary)] font-medium">{showCoupon ? "ซ่อน" : "เลือก"}</span>
-          </button>
+            <button onClick={handleEditSearch} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              Edit
+            </button>
+          </div>
+          <div className="w-full h-px bg-gray-100"></div>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Guests</p>
+              <p className="font-bold text-[#1a1a1a] text-sm">{guests} Guests ({roomsCount} Rooms)</p>
+            </div>
+            <button onClick={handleEditSearch} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              Edit
+            </button>
+          </div>
+          <div className="w-full h-px bg-gray-100"></div>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Contact</p>
+              <p className="font-bold text-[#1a1a1a] text-sm">{fullName}</p>
+            </div>
+            <button onClick={handleBackToGuestInfo} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              Edit
+            </button>
+          </div>
+        </div>
 
+        {/* 3. Payment Information */}
+        <h3 className="text-sm font-bold text-[#1a1a1a] mb-3 px-1">Payment Information</h3>
+        <div className="bg-white rounded-3xl p-5 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100">
+          <div className="flex justify-between items-end mb-4">
+            <div>
+              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Cost</p>
+              <div className="flex items-baseline gap-2">
+                {discountAmount > 0 && <span className="text-gray-400 line-through text-sm font-medium">{originalTotalPrice.toLocaleString()}</span>}
+                <p className="font-bold text-[#1a1a1a] text-2xl">{finalTotalPrice.toLocaleString()} {roomType?.currencySymbol || "฿"}</p>
+              </div>
+            </div>
+            {/* Coupon Toggle */}
+            <button
+              onClick={() => setShowCoupon(prev => !prev)}
+              className="text-xs font-bold text-[#ff7a3d] bg-[#ff7a3d]/10 px-3 py-1.5 rounded-full hover:bg-[#ff7a3d]/20 transition-colors"
+            >
+              {selectedCoupon ? 'Change Coupon' : 'Add Coupon'}
+            </button>
+          </div>
+
+          {/* Coupon List (Collapsible) */}
           {showCoupon && (
-            <div className="mt-4 space-y-2">
-              <label className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm cursor-pointer transition-colors ${selectedCouponId === "" ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)] bg-[var(--background)]"}`}>
-                <input
-                  type="radio"
-                  name="coupon"
-                  value=""
-                  checked={selectedCouponId === ""}
-                  onChange={(e) => setSelectedCouponId(e.target.value)}
-                  className="accent-[var(--primary)] w-4 h-4"
-                />
-                <span className="flex-1 font-medium">ไม่ใช้คูปอง</span>
-              </label>
-
-              {availableCoupons.length === 0 ? (
-                <div className="text-xs text-[var(--text-muted)] p-2 text-center bg-gray-50 rounded-lg">ไม่มีคูปองสำหรับใช้</div>
-              ) : (
-                availableCoupons.map((coupon) => (
-                  <label
-                    key={coupon.id}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm cursor-pointer transition-colors ${selectedCouponId === coupon.id ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)] bg-[var(--background)]"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="coupon"
-                      value={coupon.id}
-                      checked={selectedCouponId === coupon.id}
-                      onChange={(e) => setSelectedCouponId(e.target.value)}
-                      className="accent-[var(--primary)] w-4 h-4"
-                    />
-                    <div className="flex-1">
-                      <div className="font-bold text-[var(--text)]">{coupon.name}</div>
-                      <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                        ลด{" "}
-                        {coupon.discountType === "percentage"
-                          ? `${coupon.discountValue}%`
-                          : `${coupon.discountValue.toLocaleString()} ${roomType?.currencySymbol || "฿"}`}
+            <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-down">
+              <p className="text-xs font-bold text-gray-500 mb-2 uppercase">Available Coupons</p>
+              <div className="space-y-2">
+                {availableCoupons.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No coupons available</p>
+                ) : (
+                  availableCoupons.map(coupon => (
+                    <div
+                      key={coupon.id}
+                      onClick={() => setSelectedCouponId(selectedCouponId === coupon.id ? '' : coupon.id)}
+                      className={`p-3 rounded-xl border flex justify-between items-center cursor-pointer transition-all ${selectedCouponId === coupon.id ? 'border-[#ff7a3d] bg-[#ff7a3d]/5' : 'border-gray-100 hover:border-gray-300'}`}
+                    >
+                      <div>
+                        <p className="text-sm font-bold text-[#1a1a1a]">{coupon.name}</p>
+                        <p className="text-[10px] text-gray-500">Discount {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `${coupon.discountValue}฿`}</p>
                       </div>
+                      {selectedCouponId === coupon.id && <div className="w-4 h-4 rounded-full bg-[#ff7a3d] flex items-center justify-center"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>}
                     </div>
-                  </label>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 z-50 w-full border-t border-[var(--border)] bg-[var(--card)] p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="mx-auto max-w-md pt-2">
+      {/* Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 z-50">
+        <div className="max-w-md mx-auto flex items-center gap-4">
+          <div className="flex-1">
+            <p className="text-xl font-bold text-[#1a1a1a] flex items-baseline gap-1">
+              {finalTotalPrice.toLocaleString()}
+              <span className="text-sm font-bold text-[#1a1a1a]">{roomType?.currencySymbol || "฿"}</span>
+            </p>
+            <p className="text-[10px] text-gray-400 font-medium">Includes taxes and fees</p>
+          </div>
           <button
             onClick={handleConfirm}
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-[var(--primary)] py-3 font-bold text-white shadow-lg transition-all transform active:scale-95 hover:bg-[var(--primary-dark)] disabled:opacity-60"
+            className="bg-[#1a1a1a] hover:bg-black text-white px-8 py-3.5 rounded-2xl font-bold text-base shadow-lg transform active:scale-[0.98] transition-all disabled:opacity-70 disabled:transform-none min-w-[150px]"
           >
-            {isSubmitting ? "กำลังดำเนินการ..." : "ยืนยันการจอง"}
+            {isSubmitting ? "Processing" : "Continue"}
           </button>
         </div>
       </div>

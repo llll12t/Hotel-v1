@@ -1,100 +1,66 @@
 "use client";
 
 import { useLiffContext } from '@/context/LiffProvider';
-import { db } from '@/app/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface CustomerHeaderProps {
     showBackButton?: boolean;
-    showActionButtons?: boolean;
-    title?: string;
+    showActionButtons?: boolean; // Prop kept for compatibility but currently unused in new design
+    title?: string; // Optional override for the subtitle or title
 }
 
-export default function CustomerHeader({ showBackButton = false, showActionButtons = true, title }: CustomerHeaderProps) {
-    const { profile, loading: liffLoading, error: liffError } = useLiffContext();
-    const [customerData, setCustomerData] = useState<any>(null);
-    const [dbError, setDbError] = useState<string | null>(null);
+export default function CustomerHeader({ title }: CustomerHeaderProps) {
+    const { profile, loading: liffLoading } = useLiffContext();
     const router = useRouter();
 
-    useEffect(() => {
-        let unsubscribe = () => { };
-
-        if (!liffLoading && profile?.userId) {
-            const customerRef = doc(db, "customers", profile.userId);
-
-            unsubscribe = onSnapshot(customerRef, (doc) => {
-                if (doc.exists()) {
-                    setCustomerData(doc.data());
-                    setDbError(null);
-                } else {
-                    console.warn("ไม่พบข้อมูลลูกค้าใน Database (อาจเป็นลูกค้าใหม่)");
-                    setCustomerData({ points: 0 });
-                }
-            }, (error) => {
-                console.error("Firebase Error:", error);
-                setDbError("เชื่อมต่อข้อมูลไม่สำเร็จ");
-            });
-        }
-        return () => unsubscribe();
-    }, [profile, liffLoading]);
-
-    if (liffLoading) return <div className="p-6 bg-[var(--background)] animate-pulse h-32"></div>;
-
-    if (liffError) return null;
+    if (liffLoading) {
+        return (
+            <div className="pt-6 pb-2 px-6 bg-[var(--background)] flex justify-between items-center">
+                <div className="w-12 h-12 rounded-2xl bg-gray-200 animate-pulse"></div>
+                <div className="flex flex-col items-center gap-1">
+                    <div className="h-5 w-24 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-3 w-16 bg-gray-200 animate-pulse rounded"></div>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gray-200 animate-pulse"></div>
+            </div>
+        );
+    }
 
     return (
-        <div className="pt-6 pb-6 px-6 bg-[var(--background)]">
-            {title && (
-                <div className="flex items-center gap-2 mb-4">
-                    <button onClick={() => router.back()} className="text-[var(--text-muted)] p-1 -ml-1 hover:text-[var(--text)] transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                        </svg>
-                    </button>
-                    <h1 className="text-xl font-bold text-[var(--text)]">{title}</h1>
-                </div>
-            )}
-
-            <header className="rounded-md relative overflow-hidden shadow-lg bg-[#2a2a2e]">
-                <div className="px-5 flex justify-between items-stretch min-h-[76px]">
-                    <div className="flex items-center gap-3 z-10 py-3">
-
-                        {profile?.pictureUrl ? (
-                            <div className="w-11 h-11 rounded-xl bg-gray-200 overflow-hidden ring-2 ring-[#3b82f6] flex-shrink-0">
-                                <img src={profile.pictureUrl} alt="Profile" className="w-full h-full object-cover" />
-                            </div>
-                        ) : (
-                            <div className="w-11 h-11 rounded-xl bg-gray-300 ring-2 ring-[#3b82f6] flex-shrink-0"></div>
-                        )}
-                        <div className="leading-tight">
-                            <p className="text-gray-300 text-[12px] font-medium">Good morning</p>
-                            <p className="text-white text-sm font-semibold truncate max-w-[150px]">
-                                {profile?.displayName || 'ผู้ใช้ทั่วไป'}
-                            </p>
-                            {dbError && (
-                                <p className="text-[10px] text-[#ffb4a8] bg-[#ffb4a8]/10 px-1 rounded mt-1 inline-block">
-                                    {dbError}
-                                </p>
-                            )}
+        <div className="pt-8 pb-4 px-6 bg-[var(--background)]">
+            <header className="flex justify-between items-center">
+                {/* Left Button: Profile */}
+                <button
+                    onClick={() => router.push('/(customer)/profile')}
+                    className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm flex items-center justify-center transition-all active:scale-95"
+                >
+                    {profile?.pictureUrl ? (
+                        <img src={profile.pictureUrl} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+                            </svg>
                         </div>
-                    </div>
+                    )}
+                </button>
 
-                    <button
-                        type="button"
-                        onClick={() => router.push('/my-coupons')}
-                        className="bg-[#ff7a3d] text-white pl-7 pr-5 -mr-5 flex flex-col items-end justify-center min-w-[110px] rounded-l-[0px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                        style={{ clipPath: 'polygon(22% 0%, 100% 0%, 100% 100%, 0% 100%)' }}
-                        aria-label="แลกคูปองด้วยแต้ม"
-                        title="แลกคูปองด้วยแต้ม"
-                    >
-                        <span className="text-[10px] opacity-90 font-medium">Points</span>
-                        <span className="text-base font-bold leading-tight">{customerData?.points?.toLocaleString() || 0}</span>
-                    </button>
+                {/* Center: Branding (Logo Style) */}
+                <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold text-[var(--text)] tracking-tight">3RN Studio</h1>
                 </div>
+
+                {/* Right Button: Coupon */}
+                <button
+                    onClick={() => router.push('/my-coupons')}
+                    className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[var(--text)] shadow-sm hover:shadow-md transition-all active:scale-95"
+                    aria-label="Coupons"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v9.632a2.25 2.25 0 0 1-.659 1.591l-1.21 1.21a.75.75 0 0 0-.22.53v2.246c0 .621.504 1.125 1.125 1.125h15.75c.621 0 1.125-.504 1.125-1.125V5.25c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+                    </svg>
+                </button>
             </header>
-            
         </div>
     );
 }
