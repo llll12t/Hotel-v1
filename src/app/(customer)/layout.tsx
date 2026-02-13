@@ -32,8 +32,8 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
     return (
         <LiffProvider liffId={customerLiffId}>
             <ProfileProvider>
-                <div className="min-h-[100dvh] relative overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
-                    <main className='w-full max-w-md mx-auto min-h-screen relative z-10'>
+                <div className="fixed inset-0 w-full h-[100dvh] bg-[var(--background)] overflow-hidden flex justify-center text-[var(--foreground)]">
+                    <main className='w-full max-w-md h-full overflow-y-auto overflow-x-hidden relative z-10 custom-scrollbar'>
                         {children}
                     </main>
                 </div>

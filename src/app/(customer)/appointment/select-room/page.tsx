@@ -236,15 +236,13 @@ function RoomDetailContent() {
             </div>
 
             {/* Bottom Button */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-                <div className="max-w-md mx-auto">
-                    <button
-                        onClick={handleConfirm}
-                        className="w-full bg-black text-white py-4 rounded-xl font-medium text-base shadow-lg hover:opacity-90 transition-all active:scale-[0.98]"
-                    >
-                        Book Now
-                    </button>
-                </div>
+            <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+                <button
+                    onClick={handleConfirm}
+                    className="w-full bg-black text-white py-4 rounded-xl font-medium text-base shadow-lg hover:opacity-90 transition-all active:scale-[0.98]"
+                >
+                    Book Now
+                </button>
             </div>
         </div>
     );

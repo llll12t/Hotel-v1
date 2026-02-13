@@ -227,16 +227,14 @@ function GuestInfoContent() {
       </div>
 
       {/* Bottom Bar (Fixed) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={handleContinue}
-            disabled={isSubmitting}
-            className="w-full bg-[#232227] hover:bg-black text-white px-8 py-4 rounded-2xl font-bold text-base shadow-lg transform active:scale-[0.98] transition-all disabled:opacity-70 disabled:transform-none"
-          >
-            {isSubmitting ? "Processing..." : "Review & Pay"}
-          </button>
-        </div>
+      <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 p-4 z-50 rounded-t-[24px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <button
+          onClick={handleContinue}
+          disabled={isSubmitting}
+          className="w-full bg-[#232227] hover:bg-black text-white px-8 py-4 rounded-2xl font-bold text-base shadow-lg transform active:scale-[0.98] transition-all disabled:opacity-70 disabled:transform-none"
+        >
+          {isSubmitting ? "Processing..." : "Review & Pay"}
+        </button>
       </div>
     </div>
   );
