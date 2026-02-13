@@ -122,7 +122,7 @@ export default function MyCouponsPage() {
     }
 
     // Header Background Image (Same as Appointment Page)
-    const headerBgUrl = storeProfile?.headerImage || "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&q=80&w=2070";
+    const headerBgUrl = storeProfile?.headerImage;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans text-[#1A1A1A]">
