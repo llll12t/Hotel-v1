@@ -32,7 +32,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
     return (
         <LiffProvider liffId={customerLiffId}>
             <ProfileProvider>
-                <div className="min-h-screen relative overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+                <div className="min-h-[100dvh] relative overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
                     <main className='w-full max-w-md mx-auto min-h-screen relative z-10'>
                         {children}
                     </main>
