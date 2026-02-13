@@ -4,17 +4,19 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 
-interface Profile {
+export interface StoreProfile {
     storeName?: string;
     currency?: string;
     currencySymbol?: string;
     contactPhone?: string;
     address?: string;
     description?: string;
+    headerImage?: string;
+    logo?: string;
 }
 
 interface ProfileContextType {
-    profile: Profile;
+    profile: StoreProfile;
     loading: boolean;
 }
 
@@ -33,7 +35,7 @@ interface ProfileProviderProps {
 }
 
 export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) => {
-    const [profile, setProfile] = useState<Profile>({
+    const [profile, setProfile] = useState<StoreProfile>({
         storeName: 'กำลังโหลด...',
         currency: undefined,
         currencySymbol: undefined,
@@ -49,7 +51,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
                 const docRef = doc(db, 'settings', 'profile');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
-                    setProfile(docSnap.data() as Profile);
+                    setProfile(docSnap.data() as StoreProfile);
                 } else {
                     setProfile({
                         storeName: 'ชื่อร้านค้า',
