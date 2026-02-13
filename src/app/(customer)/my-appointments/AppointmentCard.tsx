@@ -5,13 +5,6 @@ import { th } from 'date-fns/locale';
 import { useProfile } from '@/context/ProfileProvider';
 import { Appointment } from '@/types';
 
-// ไอคอนดอกไม้สปา
-const SpaFlowerIcon = ({ className = "w-10 h-10", color = "#ffffff", ...props }) => (
-    <svg className={className} fill={color} viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M512,255.992c0-37.331-22.112-69.445-53.84-83.734c12.329-32.557,5.243-70.893-21.149-97.286c-26.376-26.376-64.704-33.461-97.261-21.124C325.445,22.112,293.331,0,256.009,0c-37.323,0-69.445,22.112-83.76,53.848c-32.54-12.337-70.876-5.252-97.252,21.124c-26.393,26.393-33.478,64.729-21.149,97.286C22.121,186.564,0,218.677,0,255.992c0,37.314,22.121,69.444,53.849,83.75c-12.329,32.557-5.244,70.886,21.132,97.27c26.393,26.384,64.729,33.47,97.269,21.14C186.556,489.888,218.661,512,255.992,512c37.339,0,69.469-22.112,83.758-53.848c32.557,12.329,70.885,5.243,97.261-21.14c26.392-26.384,33.478-64.712,21.149-97.27C489.888,325.453,512,293.34,512,255.992z M248.529,125.571c1.717-1.566,3.401-3.174,5.025-4.841c1.709,1.575,3.476,3.108,5.269,4.623c12.69,11.651,9.347,23.252-0.67,48.706c-0.787,2.027-1.893,4.69-3.3,7.882c-1.49-3.132-2.731-5.754-3.601-7.772C240.195,149.191,236.334,137.742,248.529,125.571z M158.094,162.626c2.329-0.068,4.649-0.218,6.969-0.428c17.213-0.728,23.034,9.859,33.94,34.903c0.854,1.977,1.993,4.682,3.25,7.89c-3.283-1.13-6.014-2.127-8.024-2.907c-25.487-9.858-36.301-15.219-36.301-32.448C158.028,167.283,158.094,164.954,158.094,162.626z M125.572,263.48c-1.567-1.725-3.175-3.417-4.833-5.034c1.574-1.717,3.099-3.484,4.623-5.285c11.651-12.672,23.252-9.322,48.689,0.712c2.019,0.788,4.707,1.893,7.856,3.283c-3.099,1.499-5.746,2.706-7.731,3.602C149.2,271.814,137.724,275.642,125.572,263.48z M202.119,317.772c-9.884,25.488-15.253,36.301-32.482,36.293c-2.337-0.084-4.682-0.16-7.003-0.16c-0.067-2.32-0.217-4.649-0.418-6.96c-0.737-17.221,9.85-23.059,34.894-33.939c2.01-0.88,4.707-2.002,7.923-3.292C203.91,312.998,202.906,315.754,202.119,317.772z M263.48,386.429c-1.726,1.558-3.401,3.174-5.026,4.842c-1.708-1.575-3.484-3.107-5.276-4.624c-12.681-11.66-9.331-23.26,0.67-48.706c0.788-2.01,1.91-4.724,3.309-7.907c1.499,3.132,2.721,5.788,3.601,7.79C271.814,362.809,275.675,374.251,263.48,386.429z M256.009,289.328c-18.41,0-33.337-14.917-33.337-33.327c0-18.419,14.926-33.336,33.337-33.336c18.409,0,33.327,14.917,33.327,33.336C289.336,274.411,274.418,289.328,256.009,289.328z M309.891,194.236c9.892-25.504,15.252-36.318,32.473-36.309c2.346,0.092,4.691,0.167,7.02,0.167c0.05,2.329,0.2,4.64,0.418,6.969c0.729,17.204-9.858,23.026-34.902,33.922c-2.01,0.896-4.699,1.986-7.916,3.275C308.107,198.969,309.095,196.256,309.891,194.236z M353.914,349.366c-2.32,0.067-4.649,0.226-6.969,0.436c-17.212,0.72-23.026-9.858-33.931-34.91c-0.888-2.01-2.001-4.716-3.291-7.932c3.283,1.13,6.022,2.136,8.048,2.932c25.505,9.858,36.31,15.244,36.31,32.464C353.981,344.709,353.914,347.037,353.914,349.366z M386.647,258.823c-11.651,12.681-23.26,9.338-48.688-0.696c-2.028-0.788-4.708-1.902-7.882-3.292c3.125-1.499,5.754-2.738,7.765-3.601c24.968-11.057,36.443-14.892,48.588-2.714c1.566,1.726,3.183,3.41,4.842,5.025C389.696,255.263,388.171,257.03,386.647,258.823z" />
-    </svg>
-);
-
 interface AppointmentCardProps {
     job: Appointment;
     onQrCodeClick: (id: string) => void;
@@ -20,175 +13,114 @@ interface AppointmentCardProps {
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, onCancelClick }) => {
     const { profile } = useProfile();
-    const statusInfo = {
-        awaiting_confirmation: { text: 'รอชำระภายในวันนี้' },
-        confirmed: { text: 'ชำระแล้ว' },
-        in_progress: { text: 'กำลังเข้าพัก' },
-        pending: { text: 'รอชำระภายในวันนี้' },
-        completed: { text: 'เสร็จสิ้น' },
-        cancelled: { text: 'ยกเลิก' },
-        blocked: { text: 'ไม่ว่าง' },
-    }[job.status] || { text: job.status };
 
-    // Convert potentially any timestamp to date
-    const appointmentDateTime = job.appointmentInfo?.dateTime && typeof job.appointmentInfo.dateTime.toDate === 'function'
-        ? job.appointmentInfo.dateTime.toDate()
-        : job.appointmentInfo?.dateTime ? new Date(job.appointmentInfo.dateTime) : new Date();
+    // Status Logic
+    const statusConfig: Record<string, { text: string; className: string }> = {
+        awaiting_confirmation: { text: 'รอชำระเงิน', className: 'bg-orange-100 text-orange-600' },
+        pending: { text: 'รอตรวจสอบ', className: 'bg-yellow-100 text-yellow-600' },
+        confirmed: { text: 'จองสำเร็จ', className: 'bg-green-100 text-green-600' },
+        in_progress: { text: 'กำลังเข้าพัก', className: 'bg-blue-100 text-blue-600' },
+        completed: { text: 'เสร็จสิ้น', className: 'bg-gray-100 text-gray-500' },
+        cancelled: { text: 'ยกเลิก', className: 'bg-red-100 text-red-500' },
+        blocked: { text: 'ไม่ว่าง', className: 'bg-gray-200 text-gray-500' },
+    };
+    const status = statusConfig[job.status] || { text: job.status, className: 'bg-gray-100 text-gray-500' };
 
-    const addOns = job.appointmentInfo?.addOns || [];
-    const paymentDueAt = job.paymentInfo?.paymentDueAt;
-    const dueDate = paymentDueAt && typeof (paymentDueAt as any).toDate === 'function'
-        ? (paymentDueAt as any).toDate()
-        : paymentDueAt ? new Date(paymentDueAt as any) : null;
-    const dueTimeLabel = dueDate ? format(dueDate, 'HH:mm', { locale: th }) : '23:59';
-    const showPaymentNotice = ['pending', 'awaiting_confirmation'].includes(job.status) && job.paymentInfo?.paymentStatus !== 'paid';
+    // Data Extraction
+    const isRoom = job.bookingType === 'room';
+
+    // Title
+    const title = isRoom
+        ? (job.roomTypeInfo?.name || 'Room Booking')
+        : (job.serviceInfo?.name || 'Service Booking');
+
+    // Image
+    const imageUrl = isRoom
+        ? job.roomTypeInfo?.imageUrl
+        : null;
+
+    // Dates
+    let dateDisplay = '';
+    if (isRoom && job.bookingInfo?.checkInDate && job.bookingInfo?.checkOutDate) {
+        const checkIn = new Date(job.bookingInfo.checkInDate);
+        const checkOut = new Date(job.bookingInfo.checkOutDate);
+        dateDisplay = `${format(checkIn, 'd MMM', { locale: th })} - ${format(checkOut, 'd MMM yyyy', { locale: th })}`;
+    } else if (job.appointmentInfo?.dateTime) {
+        // Service Date
+        const date = typeof job.appointmentInfo.dateTime.toDate === 'function'
+            ? job.appointmentInfo.dateTime.toDate()
+            : new Date(job.appointmentInfo.dateTime);
+        dateDisplay = format(date, 'd MMM yyyy, HH:mm น.', { locale: th });
+    }
+
+    // Price
+    const price = job.paymentInfo?.totalPrice?.toLocaleString() || '-';
 
     return (
-        <div className="bg-[var(--card)] rounded-2xl shadow-sm overflow-hidden border border-[var(--border)]">
-            {/* Header with flower decoration */}
-            <div className="bg-[var(--primary)] p-4 text-white relative overflow-hidden">
-                {/* ลายดอกไม้ตกแต่ง */}
-                <div className="absolute top-[-15px] right-[-15px] opacity-10 pointer-events-none">
-                    <SpaFlowerIcon className="w-20 h-20" />
-                </div>
-                <div className="absolute bottom-[-10px] left-[-10px] opacity-10 pointer-events-none transform rotate-45">
-                    <SpaFlowerIcon className="w-12 h-12" />
-                </div>
-
-                <div className="flex justify-between items-center relative z-10">
-                    <div>
-                        <div className="text-sm opacity-90">นัดหมายบริการ</div>
-                        <div className="font-semibold">{format(appointmentDateTime, 'd MMMM yyyy, HH:mm น.', { locale: th })}</div>
-                    </div>
-                    <div className="text-sm font-semibold">{statusInfo.text}</div>
-                </div>
-            </div>
-
-            {/* Content Section */}
-            <div className="p-6">
-                <div className="flex justify-between items-start text-sm mb-2">
-                    <div className="flex-1">
-                        <span className="font-semibold text-[var(--text)] block">{job.serviceInfo?.name}</span>
-                        {job.bookingType === 'room' && (
-                            <div className="text-xs text-[var(--text-muted)] mt-1">
-                                เลขห้อง: <span className="font-semibold text-[var(--text)]">{job.bookingInfo?.roomNumber ?? '-'}</span>
-                            </div>
-                        )}
-
-                        {/* Multi-area service details */}
-                        {job.serviceInfo?.serviceType === 'multi-area' && (
-                            <div className="mt-1 space-y-0.5">
-                                {job.serviceInfo?.selectedArea && (
-                                    <div className="text-xs text-[var(--primary)] font-medium">
-                                        {job.serviceInfo.selectedArea.name}
-                                    </div>
-                                )}
-                                {job.serviceInfo?.selectedPackage && (
-                                    <div className="text-xs text-[var(--primary)]">
-                                        {job.serviceInfo.selectedPackage.name && <span className="font-bold">{job.serviceInfo.selectedPackage.name} </span>}
-                                        ({job.serviceInfo.selectedPackage.duration} นาที)
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Option-based service details */}
-                        {job.serviceInfo?.serviceType === 'option-based' && (
-                            <div className="mt-1 space-y-0.5">
-                                {job.serviceInfo?.selectedOptionName && (
-                                    <div className="text-xs text-[var(--primary)] font-medium">
-                                        {job.serviceInfo.selectedOptionName}
-                                        {job.serviceInfo.selectedOptionPrice && (
-                                            <span className="text-[var(--text-muted)] font-normal"> (@ {Number(job.serviceInfo.selectedOptionPrice).toLocaleString()} {profile?.currencySymbol})</span>
-                                        )}
-                                        {job.serviceInfo.selectedAreas && job.serviceInfo.selectedAreas.length > 0 && (
-                                            <span className="text-[var(--text-muted)] font-normal"> x {job.serviceInfo.selectedAreas.length} จุด</span>
-                                        )}
-                                    </div>
-                                )}
-                                {job.serviceInfo?.selectedAreas && job.serviceInfo.selectedAreas.length > 0 && (
-                                    <div className="text-xs text-[var(--text-muted)]">
-                                        ({job.serviceInfo.selectedAreas.join(', ')})
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Area-based-options service details */}
-                        {job.serviceInfo?.serviceType === 'area-based-options' && job.serviceInfo?.selectedAreaOptions && job.serviceInfo.selectedAreaOptions.length > 0 && (
-                            <div className="mt-1 space-y-1">
-                                {job.serviceInfo.selectedAreaOptions.map((opt, idx) => (
-                                    <div key={idx} className="text-xs text-[var(--text-muted)] flex justify-between">
-                                        <span>{opt.areaName} ({opt.optionName})</span>
-                                        {opt.price && <span>{Number(opt.price).toLocaleString()} {profile?.currencySymbol}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    <span className="text-[var(--text)] ml-2 font-medium">{job.paymentInfo?.basePrice?.toLocaleString()} {profile?.currencySymbol}</span>
-                </div>
-
-                {/* Add-on Services */}
-                {addOns.length > 0 && (
-                    <div className="space-y-1 text-sm text-[var(--primary)] mb-3 pl-4 border-l-2 border-[var(--primary)]/20">
-                        {addOns.map((addon, index) => (
-                            <div key={index} className="flex justify-between">
-                                <span>+ {addon.name}</span>
-                                <span>{addon.price?.toLocaleString()} {profile?.currencySymbol}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Total Price */}
-                <div className="pt-3 mb-4 border-t border-[var(--border)] mt-2">
-                    <div className="flex justify-between items-center">
-                        <span className="font-semibold text-[var(--primary)]">ราคารวม</span>
-                        <span className="font-bold text-lg text-[var(--primary)]">{job.paymentInfo?.totalPrice?.toLocaleString() || 'N/A'} {profile?.currencySymbol}</span>
-                    </div>
-                    {job.paymentInfo?.discount && job.paymentInfo.discount > 0 ? (
-                        <div className="flex justify-between items-center text-xs text-[var(--success)] mt-1">
-                            <span>ส่วนลด</span>
-                            <span>-{job.paymentInfo.discount.toLocaleString()} {profile?.currencySymbol}</span>
+        <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all group mb-4">
+            <div className="flex flex-col sm:flex-row">
+                {/* Image Section */}
+                <div className="relative w-full sm:w-1/3 aspect-[16/9] sm:aspect-auto bg-gray-100">
+                    {imageUrl ? (
+                        <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <span className="text-4xl text-gray-200 font-bold">3RN</span>
                         </div>
-                    ) : null}
+                    )}
+                    <div className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold shadow-sm ${status.className}`}>
+                        {status.text}
+                    </div>
                 </div>
 
-                {showPaymentNotice && (
-                    <div className="mb-3 rounded-2xl border border-[#ff7a3d]/30 bg-[#ff7a3d]/10 px-3 py-2 text-xs text-[#b45309]">
-                        กรุณาชำระเงินภายใน {dueTimeLabel} วันนี้ มิฉะนั้นระบบจะยกเลิกอัตโนมัติ
-                    </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap justify-between items-center bg-[#f5f5f5] p-3 rounded-2xl gap-2">
-                    <button
-                        onClick={() => job.id && onQrCodeClick(job.id)}
-                        className="bg-white text-[#1f1f22] border border-gray-200 py-2 px-4 rounded-2xl font-semibold text-xs hover:bg-gray-50 transition-colors shadow-sm"
-                    >
-                        QR Code
-                    </button>
-                    <div className="flex space-x-2 items-center">
-                        {job.status === 'confirmed' && (
-                            <div className="text-center text-white font-medium text-xs py-2 bg-[#1f1f22] px-3 rounded-2xl">
-                                กรุณามาก่อน 10 นาที
+                {/* Content Section */}
+                <div className="flex-1 p-4 flex flex-col justify-between min-h-[140px]">
+                    <div>
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1 pr-2">
+                                <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">{title}</h3>
+                                <p className="text-sm text-gray-500 font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5" />
+                                    </svg>
+                                    {dateDisplay}
+                                </p>
+                                {isRoom && job.bookingInfo?.guests && (
+                                    <p className="text-xs text-gray-400 mt-1 ml-5">
+                                        {job.bookingInfo.guests} Guests • {job.bookingInfo.nights} Nights
+                                    </p>
+                                )}
                             </div>
-                        )}
-                        {job.status !== 'in_progress' && job.status !== 'confirmed' && (
+                            <div className="text-right">
+                                <span className="text-lg font-bold text-gray-900">{price}</span>
+                                <span className="text-xs text-gray-500 ml-1">บาท</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-50">
+                        {/* Cancel Button */}
+                        {['pending', 'awaiting_confirmation', 'confirmed'].includes(job.status) && (
                             <button
                                 onClick={() => onCancelClick(job)}
-                                className="bg-white text-[#ff7a3d] py-2 px-4 rounded-2xl font-semibold text-xs hover:bg-[#ff7a3d]/10 transition-colors border border-[#ff7a3d]/40"
+                                className="px-4 py-2 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
                             >
                                 ยกเลิก
                             </button>
                         )}
-                        {job.status === 'confirmed' && (
+
+                        {/* QR Code / Payment Button */}
+                        {['pending', 'awaiting_confirmation', 'confirmed'].includes(job.status) && (
                             <button
-                                onClick={() => onCancelClick(job)}
-                                className="text-[#ff6a24] text-xs hover:text-[#ff7a3d] underline px-2"
+                                onClick={() => onQrCodeClick(job.id!)}
+                                className="px-4 py-2 bg-black text-white text-sm font-bold rounded-xl shadow-sm hover:opacity-90 transition-all active:scale-95 flex items-center gap-2"
                             >
-                                ยกเลิก
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+                                </svg>
+                                {job.status === 'confirmed' ? 'QR Code' : 'ชำระเงิน'}
                             </button>
                         )}
                     </div>
@@ -199,5 +131,3 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, o
 };
 
 export default AppointmentCard;
-
-

@@ -10,7 +10,6 @@ import { useLiffContext } from "@/context/LiffProvider";
 import { useToast } from "@/app/components/Toast";
 import LoadingScreen from "@/app/components/common/LoadingScreen";
 import { RoomType } from "@/types";
-import CustomerHeader from "@/app/components/CustomerHeader";
 
 function GuestInfoContent() {
   const router = useRouter();
@@ -146,12 +145,10 @@ function GuestInfoContent() {
   if (!roomTypeId) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] pb-32">
-      <CustomerHeader showBackButton={true} />
-
-      <div className="px-5 pt-6">
+    <div className="min-h-screen bg-[#f8f9fa]">
+      <div className="p-4">
         {/* Summary Card */}
-        <div className="bg-white rounded-3xl p-5 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100">
+        <div className="bg-white rounded-xl p-5 mb-4 border border-gray-100">
           <h3 className="font-bold text-[#1a1a1a] text-lg mb-3">{roomType?.name}</h3>
 
           <div className="flex items-center gap-3 mb-4">
@@ -175,7 +172,7 @@ function GuestInfoContent() {
 
         {/* Form Section */}
         <h2 className="text-xl font-bold text-[#1a1a1a] mb-4 px-1">Your Details</h2>
-        <div className="bg-white rounded-3xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 space-y-4">
+        <div className="bg-white rounded-xl p-5  border border-gray-100 space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Full Name</label>
             <input

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
@@ -8,9 +8,25 @@ import { th } from "date-fns/locale";
 import { db } from "@/app/lib/firebase";
 import { useLiffContext } from "@/context/LiffProvider";
 import { createBooking } from "@/app/actions/appointmentActions";
+import { submitPaymentSlip } from "@/app/actions/paymentSlipActions"; // Assuming this exists or I handle it manually
 import { useToast } from "@/app/components/Toast";
 import LoadingScreen from "@/app/components/common/LoadingScreen";
 import { RoomType } from "@/types";
+import QRCode from "qrcode";
+import generatePayload from "promptpay-qr";
+
+// --- Icons ---
+const StarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-yellow-500">
+    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <span className="text-xs bg-[#dadada] text-[#555] px-3 py-1 rounded-full font-medium cursor-pointer hover:bg-gray-300 transition-colors">
+    edit
+  </span>
+);
 
 interface Coupon {
   id: string;
@@ -28,121 +44,21 @@ const createBookingSuccessFlex = (payload: {
   totalPrice: number;
   currencySymbol: string;
 }) => {
-  const customerLiffId = process.env.NEXT_PUBLIC_CUSTOMER_LIFF_ID;
-  const paymentUrl = customerLiffId
-    ? `https://liff.line.me/${customerLiffId}/payment/${payload.bookingId}`
-    : null;
-
+  // Simplified Flex Message for success
   return {
     type: "flex",
     altText: `จองห้องสำเร็จ ${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
     contents: {
       type: "bubble",
-      size: "mega",
       body: {
         type: "box",
         layout: "vertical",
-        spacing: "md",
         contents: [
-          {
-            type: "text",
-            text: "จองห้องสำเร็จ",
-            weight: "bold",
-            size: "lg",
-            color: "#553734",
-            align: "center",
-          },
-          {
-            type: "separator",
-            color: "#D9CFC3",
-          },
-          {
-            type: "box",
-            layout: "vertical",
-            spacing: "sm",
-            contents: [
-              {
-                type: "box",
-                layout: "horizontal",
-                contents: [
-                  { type: "text", text: "เลขที่การจอง", size: "sm", color: "#666666", flex: 3 },
-                  { type: "text", text: payload.bookingId.slice(0, 8).toUpperCase(), size: "sm", color: "#111111", align: "end", flex: 4 },
-                ],
-              },
-              {
-                type: "box",
-                layout: "horizontal",
-                contents: [
-                  { type: "text", text: "ประเภทห้อง", size: "sm", color: "#666666", flex: 3 },
-                  { type: "text", text: payload.roomTypeName || "-", size: "sm", color: "#111111", align: "end", flex: 4, wrap: true },
-                ],
-              },
-              {
-                type: "box",
-                layout: "horizontal",
-                contents: [
-                  { type: "text", text: "เช็คอิน", size: "sm", color: "#666666", flex: 3 },
-                  { type: "text", text: payload.checkIn, size: "sm", color: "#111111", align: "end", flex: 4 },
-                ],
-              },
-              {
-                type: "box",
-                layout: "horizontal",
-                contents: [
-                  { type: "text", text: "เช็คเอาท์", size: "sm", color: "#666666", flex: 3 },
-                  { type: "text", text: payload.checkOut, size: "sm", color: "#111111", align: "end", flex: 4 },
-                ],
-              },
-            ],
-            paddingAll: "12px",
-            backgroundColor: "#F8F8F8",
-            cornerRadius: "10px",
-          },
-          {
-            type: "box",
-            layout: "horizontal",
-            contents: [
-              { type: "text", text: "ยอดชำระ", weight: "bold", size: "md", color: "#333333", flex: 0 },
-              {
-                type: "text",
-                text: `${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
-                weight: "bold",
-                size: "md",
-                color: "#553734",
-                align: "end",
-              },
-            ],
-            paddingAll: "12px",
-            backgroundColor: "#F5F2ED",
-            cornerRadius: "10px",
-          },
-        ],
-        paddingAll: "20px",
-      },
-      ...(paymentUrl
-        ? {
-          footer: {
-            type: "box",
-            layout: "vertical",
-            spacing: "sm",
-            paddingAll: "20px",
-            contents: [
-              {
-                type: "button",
-                style: "primary",
-                height: "sm",
-                color: "#553734",
-                action: {
-                  type: "uri",
-                  label: "ชำระเงิน",
-                  uri: paymentUrl,
-                },
-              },
-            ],
-          },
-        }
-        : {}),
-    },
+          { type: "text", text: "จองห้องสำเร็จ", weight: "bold", size: "xl", align: "center", color: "#1DB446" },
+          { type: "text", text: `ID: ${payload.bookingId.slice(0, 8).toUpperCase()}`, size: "xs", align: "center", color: "#aaaaaa", margin: "sm" }
+        ]
+      }
+    }
   };
 };
 
@@ -174,7 +90,13 @@ function ReviewConfirmContent() {
   const [roomsCount, setRoomsCount] = useState(Number(incomingRooms) || 1);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [selectedCouponId, setSelectedCouponId] = useState(incomingCouponId || "");
-  const [showCoupon, setShowCoupon] = useState(false);
+  const [showCouponModal, setShowCouponModal] = useState(false);
+
+  // Payment State
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [promptPayNo, setPromptPayNo] = useState("");
+  const [slipImage, setSlipImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -185,6 +107,7 @@ function ReviewConfirmContent() {
 
       setLoading(true);
       try {
+        // 1. Fetch Room Data
         const docRef = doc(db, "roomTypes", roomTypeId);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
@@ -195,6 +118,7 @@ function ReviewConfirmContent() {
           return;
         }
 
+        // 2. Fetch Coupons
         if (profile?.userId) {
           const couponsQ = query(
             collection(db, "customers", profile.userId, "coupons"),
@@ -204,6 +128,20 @@ function ReviewConfirmContent() {
           setAvailableCoupons(
             couponsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Coupon, "id">) }))
           );
+        }
+
+        // 3. Fetch Payment Settings (PromptPay) - Optional
+        try {
+          const paymentSettingsSnap = await getDoc(doc(db, "settings", "payment"));
+          if (paymentSettingsSnap.exists()) {
+            const settings = paymentSettingsSnap.data();
+            if (settings?.promptPayAccount) {
+              setPromptPayNo(settings.promptPayAccount);
+            }
+          }
+        } catch (settingsError) {
+          console.warn("Could not fetch payment settings:", settingsError);
+          // Continue without settings
         }
       } catch (error) {
         console.error("Error loading data", error);
@@ -235,9 +173,26 @@ function ReviewConfirmContent() {
   }
   const finalTotalPrice = Math.max(0, originalTotalPrice - discountAmount);
 
+  // Generate QR Code when total price or promptpay number changes
+  useEffect(() => {
+    const genQR = async () => {
+      if (finalTotalPrice > 0 && promptPayNo) {
+        try {
+          const payload = generatePayload(promptPayNo, { amount: finalTotalPrice });
+          const url = await QRCode.toDataURL(payload, { width: 400, margin: 1 });
+          setQrCodeUrl(url);
+        } catch (e) {
+          console.error("QR Gen Error", e);
+        }
+      }
+    };
+    genQR();
+  }, [finalTotalPrice, promptPayNo]);
+
+
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "dd MMM", { locale: th });
+      return format(new Date(dateStr), "dd MMM", { locale: th }); // e.g. 13 กพ
     } catch {
       return dateStr;
     }
@@ -263,18 +218,26 @@ function ReviewConfirmContent() {
     router.push(`/appointment/guest-info?${params.toString()}`);
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setSlipImage(ev.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!profile?.userId) {
       showToast("กรุณาเข้าสู่ระบบก่อนทำการจอง", "warning");
       return;
     }
-    if (!roomTypeId) {
+    if (!roomType) {
       showToast("ไม่พบข้อมูลห้องพัก", "error");
-      return;
-    }
-    if (!fullName || !phone) {
-      showToast("ไม่พบข้อมูลลูกค้า กรุณากลับไปกรอกข้อมูล", "warning");
-      handleBackToGuestInfo();
       return;
     }
 
@@ -288,7 +251,7 @@ function ReviewConfirmContent() {
         nights,
         rooms: Math.max(1, roomsCount),
         guests: Number.isFinite(guests) ? guests : 1,
-        status: "pending",
+        status: slipImage ? "awaiting_confirmation" : "pending", // If slip attached, await confirm. Else pending payment.
         customerInfo: { fullName, phone, email, note, pictureUrl: profile.pictureUrl || "" },
         paymentInfo: {
           originalPrice: originalTotalPrice,
@@ -296,16 +259,22 @@ function ReviewConfirmContent() {
           discount: discountAmount,
           couponId: selectedCouponId || null,
           couponName: selectedCoupon?.name || null,
-          paymentStatus: "unpaid",
+          paymentStatus: slipImage ? "pending_verification" : "unpaid",
         },
       };
 
       const lineAccessToken = liff?.getAccessToken?.();
       const result = await createBooking(bookingData, { lineAccessToken });
+
       if (!result.success) {
         showToast(typeof result.error === "string" ? result.error : "เกิดข้อผิดพลาด", "error");
         setIsSubmitting(false);
         return;
+      }
+
+      // If slip exists, submit it
+      if (slipImage && result.id) {
+        await submitPaymentSlip(result.id, { slipBase64: slipImage, note: "Uploaded during booking" }, { lineAccessToken });
       }
 
       if (liff?.isInClient()) {
@@ -320,7 +289,7 @@ function ReviewConfirmContent() {
           });
           await liff.sendMessages([flex as unknown as object]);
         } catch (msgError) {
-          console.warn("ส่ง Flex ยืนยันการจองไม่สำเร็จ:", msgError);
+          console.warn("Flex Error", msgError);
         }
       }
 
@@ -328,7 +297,7 @@ function ReviewConfirmContent() {
       router.push("/my-appointments");
     } catch (err) {
       console.error(err);
-      showToast("เกิดข้อผิดพลาดในการจอง กรุณาลองอีกครั้ง", "error");
+      showToast("เกิดข้อผิดพลาดในการจอง", "error");
       setIsSubmitting(false);
     }
   };
@@ -338,132 +307,143 @@ function ReviewConfirmContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] pb-40">
-      <div className="px-5 pt-6">
-        {/* 1. Room Preview Card */}
-        <div className="bg-white rounded-3xl p-4 flex gap-4 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100">
-          <div className="w-24 h-24 flex-shrink-0 rounded-2xl bg-gray-200 overflow-hidden">
+    <div className="min-h-screen bg-[#F6F6F6] pb-24 font-sans p-4">
+
+      {/* Combined Room & Booking Details Card */}
+      <div className="bg-white rounded-xl p-5 mb-2  border border-gray-100">
+        {/* Room Header - Compact */}
+        <div className="flex gap-4 mb-2">
+          <div className="w-20 h-20 bg-gray-200 rounded-xl overflow-hidden flex-shrink-0">
             {roomType?.imageUrls?.[0] ? (
               <img src={roomType.imageUrls[0]} alt={roomType.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>
             )}
           </div>
-          <div className="flex flex-col justify-center min-w-0">
-            <div className="text-xs text-gray-400 font-medium mb-0.5">Hotel Room</div>
-            <h3 className="font-bold text-[#1a1a1a] text-lg truncate mb-1">{roomType?.name}</h3>
-            <div className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-              <span className="text-xs font-bold text-[#1a1a1a]">4.9</span>
-              <span className="text-[10px] text-gray-400">(100+ Reviews)</span>
+          <div className="flex flex-col justify-center flex-1 min-w-0">
+            <div className="flex justify-between items-start">
+              <h3 className="text-base font-bold text-gray-900 leading-tight truncate pr-2">{roomType?.name}</h3>
+              <div className="flex items-center gap-1 flex-shrink-0 bg-gray-50 px-1.5 py-0.5 rounded-md">
+                <StarIcon />
+                <span className="text-xs font-bold text-gray-900">4.9</span>
+              </div>
             </div>
+            <p className="text-sm font-bold text-gray-900 mt-1">{roomType?.basePrice?.toLocaleString()} บาท/คืน</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">10 reviews</p>
           </div>
         </div>
 
-        {/* 2. Your Booking */}
-        <h3 className="text-sm font-bold text-[#1a1a1a] mb-3 px-1">Your Booking</h3>
-        <div className="bg-white rounded-3xl p-5 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-4 border border-gray-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Dates</p>
-              <p className="font-bold text-[#1a1a1a] text-sm">{formatDate(checkIn)} - {formatDate(checkOut)}</p>
-            </div>
-            <button onClick={handleEditSearch} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              Edit
-            </button>
-          </div>
-          <div className="w-full h-px bg-gray-100"></div>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Guests</p>
-              <p className="font-bold text-[#1a1a1a] text-sm">{guests} Guests ({roomsCount} Rooms)</p>
-            </div>
-            <button onClick={handleEditSearch} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              Edit
-            </button>
-          </div>
-          <div className="w-full h-px bg-gray-100"></div>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Contact</p>
-              <p className="font-bold text-[#1a1a1a] text-sm">{fullName}</p>
-            </div>
-            <button onClick={handleBackToGuestInfo} className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-              Edit
-            </button>
-          </div>
-        </div>
+        <hr className="my-5 border-gray-100" />
 
-        {/* 3. Payment Information */}
-        <h3 className="text-sm font-bold text-[#1a1a1a] mb-3 px-1">Payment Information</h3>
-        <div className="bg-white rounded-3xl p-5 mb-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100">
-          <div className="flex justify-between items-end mb-4">
-            <div>
-              <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Cost</p>
-              <div className="flex items-baseline gap-2">
-                {discountAmount > 0 && <span className="text-gray-400 line-through text-sm font-medium">{originalTotalPrice.toLocaleString()}</span>}
-                <p className="font-bold text-[#1a1a1a] text-2xl">{finalTotalPrice.toLocaleString()} {roomType?.currencySymbol || "฿"}</p>
-              </div>
-            </div>
-            {/* Coupon Toggle */}
-            <button
-              onClick={() => setShowCoupon(prev => !prev)}
-              className="text-xs font-bold text-[#ff7a3d] bg-[#ff7a3d]/10 px-3 py-1.5 rounded-full hover:bg-[#ff7a3d]/20 transition-colors"
-            >
-              {selectedCoupon ? 'Change Coupon' : 'Add Coupon'}
-            </button>
-          </div>
+        {/* Youbooking Details */}
+        <div>
+          <h3 className="text-base font-bold text-gray-900 mb-4">Youbooking</h3>
 
-          {/* Coupon List (Collapsible) */}
-          {showCoupon && (
-            <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-down">
-              <p className="text-xs font-bold text-gray-500 mb-2 uppercase">Available Coupons</p>
-              <div className="space-y-2">
-                {availableCoupons.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No coupons available</p>
-                ) : (
-                  availableCoupons.map(coupon => (
-                    <div
-                      key={coupon.id}
-                      onClick={() => setSelectedCouponId(selectedCouponId === coupon.id ? '' : coupon.id)}
-                      className={`p-3 rounded-xl border flex justify-between items-center cursor-pointer transition-all ${selectedCouponId === coupon.id ? 'border-[#ff7a3d] bg-[#ff7a3d]/5' : 'border-gray-100 hover:border-gray-300'}`}
-                    >
-                      <div>
-                        <p className="text-sm font-bold text-[#1a1a1a]">{coupon.name}</p>
-                        <p className="text-[10px] text-gray-500">Discount {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `${coupon.discountValue}฿`}</p>
-                      </div>
-                      {selectedCouponId === coupon.id && <div className="w-4 h-4 rounded-full bg-[#ff7a3d] flex items-center justify-center"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>}
-                    </div>
-                  ))
-                )}
+          <div className="space-y-5">
+            {/* DATES */}
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-1">DATES</p>
+                <p className="text-sm font-bold text-gray-900">{formatDate(checkIn)} - {formatDate(checkOut)}</p>
               </div>
+              <div onClick={handleEditSearch}><EditIcon /></div>
             </div>
-          )}
+
+            {/* GUESTS */}
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-1">GUESTS</p>
+                <p className="text-sm font-bold text-gray-900">{guests} Gusts ( {roomsCount} Room )</p>
+              </div>
+              <div onClick={handleEditSearch}><EditIcon /></div>
+            </div>
+
+            {/* CONTACT */}
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-1">CONTACT</p>
+                <p className="text-sm font-bold text-gray-900">{fullName || "jame"}</p>
+              </div>
+              <div onClick={handleBackToGuestInfo}><EditIcon /></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4 z-50">
-        <div className="max-w-md mx-auto flex items-center gap-4">
-          <div className="flex-1">
-            <p className="text-xl font-bold text-[#1a1a1a] flex items-baseline gap-1">
-              {finalTotalPrice.toLocaleString()}
-              <span className="text-sm font-bold text-[#1a1a1a]">{roomType?.currencySymbol || "฿"}</span>
-            </p>
-            <p className="text-[10px] text-gray-400 font-medium">Includes taxes and fees</p>
+      {/* Payment Card */}
+      <div className="bg-white rounded-xl p-5 mb-5  border border-gray-100">
+        <div className="mb-6">
+          <h3 className="text-base font-bold text-gray-900 uppercase mb-4">PAYMENT</h3>
+          <div className="flex justify-between items-center border-b border-gray-200 pb-4">
+            <div>
+              <p className="text-[10px] text-gray-400 font-bold mb-1">Total cost</p>
+              <p className="text-2xl font-bold text-gray-900">{finalTotalPrice.toLocaleString()}</p>
+            </div>
+            <button
+              onClick={() => setShowCouponModal(!showCouponModal)}
+              className="bg-[#FF754B] text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md hover:opacity-90 transition-opacity"
+            >
+              {selectedCoupon ? 'Change coupon' : 'Add coupon'}
+            </button>
           </div>
+        </div>
+
+        {showCouponModal && (
+          <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100 animate-fade-in-down">
+            <p className="text-xs font-bold text-gray-500 mb-2">Available Coupons</p>
+            {availableCoupons.length === 0 ? <p className="text-xs text-gray-400 italic">No coupons found.</p> :
+              availableCoupons.map(c => (
+                <div key={c.id} onClick={() => setSelectedCouponId(selectedCouponId === c.id ? '' : c.id)} className={`p-2 border rounded-lg mb-2 text-xs flex justify-between ${selectedCouponId === c.id ? 'border-[#FF754B] bg-orange-50' : 'border-gray-200'}`}>
+                  <span>{c.name}</span>
+                  <span>-{c.discountValue}</span>
+                </div>
+              ))}
+          </div>
+        )}
+
+        <div className="flex flex-col items-center">
+          <div className="w-[200px] h-[200px] bg-black rounded-lg overflow-hidden mb-6 relative border border-gray-200  flex items-center justify-center">
+            {slipImage ? (
+              <img src={slipImage} alt="Payment Slip" className="w-full h-full object-cover" />
+            ) : (
+              qrCodeUrl ? (
+                <img src={qrCodeUrl} alt="Payment QR" className="w-full h-full object-cover p-2 bg-white" />
+              ) : (
+                <div className="text-white text-xs text-center p-2">
+                  {!promptPayNo ? "No PromptPay ID" : "Generating QR..."}
+                </div>
+              )
+            )}
+          </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleFileSelect}
+          />
+
           <button
-            onClick={handleConfirm}
-            disabled={isSubmitting}
-            className="bg-[#1a1a1a] hover:bg-black text-white px-8 py-3.5 rounded-2xl font-bold text-base shadow-lg transform active:scale-[0.98] transition-all disabled:opacity-70 disabled:transform-none min-w-[150px]"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[#FF754B] text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-all text-sm mb-2"
           >
-            {isSubmitting ? "Processing" : "Continue"}
+            {slipImage ? 'เปลี่ยนรูปสลิป' : 'อัพโหลดยืนยันชำระเงิน'}
           </button>
         </div>
       </div>
+
+      {/* Bottom Confirm Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50 rounded-t-[32px]">
+        <button
+          onClick={handleConfirm}
+          disabled={isSubmitting}
+          className="w-full bg-black text-white font-medium text-base py-4 rounded-xl shadow-lg hover:opacity-90 disabled:opacity-70 transition-all"
+        >
+          {isSubmitting ? 'Processing...' : 'Confirm'}
+        </button>
+      </div>
+
     </div>
   );
 }

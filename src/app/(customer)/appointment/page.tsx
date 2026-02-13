@@ -56,6 +56,8 @@ export default function AppointmentPage() {
     const [errorMsg, setErrorMsg] = useState('');
     const [soldOutRoomTypeIds, setSoldOutRoomTypeIds] = useState<Set<string>>(new Set());
 
+    const [reviewsStats, setReviewsStats] = useState<Record<string, { rating: number, count: number }>>({});
+
     const checkInRef = useRef<HTMLInputElement>(null);
     const checkOutRef = useRef<HTMLInputElement>(null);
 
@@ -81,6 +83,8 @@ export default function AppointmentPage() {
         setLoading(true);
         setErrorMsg('');
         setSoldOutRoomTypeIds(new Set());
+        setReviewsStats({});
+
         try {
             // 1. Fetch Room Types
             const roomTypesRef = collection(db, 'roomTypes');
@@ -151,6 +155,37 @@ export default function AppointmentPage() {
 
             setSoldOutRoomTypeIds(soldOut);
             setRoomTypes(fetchedRoomTypes);
+
+            // 5. Fetch Reviews content for stats
+            // We fetch all reviews to aggregate. For large datasets, use a stats collection instead.
+            try {
+                const reviewsSnap = await getDocs(collection(db, 'reviews'));
+                const stats: Record<string, { totalScore: number, count: number }> = {};
+
+                reviewsSnap.forEach(doc => {
+                    const d = doc.data();
+                    const rId = d.roomTypeId;
+                    const sc = d.score || d.rating || 0;
+                    if (rId && sc > 0) {
+                        if (!stats[rId]) stats[rId] = { totalScore: 0, count: 0 };
+                        stats[rId].totalScore += sc;
+                        stats[rId].count += 1;
+                    }
+                });
+
+                const finalStats: Record<string, { rating: number, count: number }> = {};
+                Object.keys(stats).forEach(key => {
+                    finalStats[key] = {
+                        rating: stats[key].totalScore / stats[key].count,
+                        count: stats[key].count
+                    };
+                });
+                setReviewsStats(finalStats);
+
+            } catch (err) {
+                console.warn("Error fetching reviews stats", err);
+            }
+
         } catch (e: any) {
             console.error('Failed fetching room types:', e);
             setErrorMsg('ไม่สามารถโหลดข้อมูลห้องพักได้');
@@ -188,51 +223,56 @@ export default function AppointmentPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f5f5f5] pb-24">
+        <div className="min-h-screen bg-[#f6f6f6] font-sans">
             {/* Header */}
             <CustomerHeader showBackButton={true} />
 
-            <div className="px-5">
+            <div className="px-4">
                 {/* Search Section */}
-                <div className="bg-white rounded-3xl p-4 shadow-sm mb-6">
-                    <div className="flex gap-2 mb-4">
-                        {/* Date Range Input (Visual combination) */}
+                <div className="bg-white rounded-xl p-4 mb-4 border border-gray-100">
+                    <div className="flex gap-3 mb-5 ">
+                        {/* Date Range Input */}
                         <div
-                            className="flex-[2] border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-gray-400 transition-colors relative"
+                            className="flex-[2] border border-gray-100 rounded-2xl px-3 py-2 flex items-center gap-3 cursor-pointer hover:border-gray-300 transition-colors relative"
                             onClick={() => setShowDatePicker(true)}
                         >
-                            <CalendarIcon />
-                            <div className="flex flex-col flex-1 min-w-0">
-                                <span className="text-[10px] text-gray-400 font-medium leading-none mb-0.5">Check-in - Check-out</span>
-                                <div className="text-xs font-semibold text-gray-800 whitespace-nowrap truncate">
+                            <div className="p-2 bg-gray-50 rounded-xl text-gray-600">
+                                <CalendarIcon />
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0 justify-center">
+                                <div className="text-xs font-bold text-gray-900 whitespace-nowrap">
                                     {format(new Date(checkIn), 'dd/MM')} - {format(new Date(checkOut), 'dd/MM yyyy')}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Nights (Display Only) */}
-                        <div className="flex-1 border border-gray-200 rounded-xl px-2 py-2 flex items-center justify-center gap-1 min-w-[60px]">
-                            <SunIcon />
-                            <span className="text-sm font-semibold text-gray-800">{nights}</span>
+                        {/* Nights */}
+                        <div className="flex-1 border border-gray-100 rounded-2xl px-1 py-1 flex flex-col items-center justify-center gap-1 min-w-[60px]">
+                            <div className="text-gray-600">
+                                <SunIcon />
+                            </div>
+                            <span className="text-sm font-bold text-gray-900">{nights}</span>
                         </div>
 
-                        {/* Guests Input */}
-                        <div className="flex-1 border border-gray-200 rounded-xl px-2 py-2 flex items-center justify-center gap-1 min-w-[60px] relative">
-                            <UserIcon />
+                        {/* Guests */}
+                        <div className="flex-1 border border-gray-100 rounded-2xl px-1 py-1 flex flex-col items-center justify-center gap-1 min-w-[60px] relative">
+                            <div className="text-gray-600">
+                                <UserIcon />
+                            </div>
                             <select
                                 value={guests}
                                 onChange={(e) => setGuests(Number(e.target.value))}
-                                className="appearance-none bg-transparent text-sm font-semibold text-gray-800 outline-none w-full text-center absolute inset-0 opacity-0 cursor-pointer"
+                                className="appearance-none bg-transparent text-sm font-bold text-gray-900 outline-none w-full text-center absolute inset-0 opacity-0 cursor-pointer z-10"
                             >
                                 {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
-                            <span className="text-sm font-semibold text-gray-800">{guests}</span>
+                            <span className="text-sm font-bold text-gray-900">{guests}</span>
                         </div>
                     </div>
 
                     <button
                         onClick={handleSearch}
-                        className="w-full bg-black text-white font-medium rounded-xl py-3 hover:opacity-90 transition-opacity active:scale-[0.98] shadow-md"
+                        className="w-full bg-black text-white font-bold rounded-2xl py-4 hover:opacity-90 transition-all active:scale-[0.98] shadow-lg text-base"
                     >
                         ค้นหาที่พัก
                     </button>
@@ -240,11 +280,11 @@ export default function AppointmentPage() {
 
 
                 {/* Room List (Cards) */}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-6">
                     {errorMsg ? (
                         <div className="text-center py-10 text-[var(--error)]">{errorMsg}</div>
                     ) : roomTypes.length === 0 ? (
-                        <div className="text-center py-10 text-gray-400 bg-white rounded-3xl p-8 shadow-sm">
+                        <div className="text-center py-10 text-gray-400 bg-white rounded-xl p-8 ">
                             <p>ไม่พบห้องพักว่างในช่วงเวลานี้</p>
                             <button onClick={fetchRoomTypes} className="mt-2 text-black underline font-medium">ลองค้นหาใหม่</button>
                         </div>
@@ -255,14 +295,14 @@ export default function AppointmentPage() {
                                 <div
                                     key={room.id}
                                     onClick={() => !isSoldOut && handleSelectRoomType(room)}
-                                    className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer group ${isSoldOut ? 'grayscale opacity-70 cursor-not-allowed' : ''}`}
+                                    className={`bg-white rounded-xl p-2  hover:shadow-md transition-all active:scale-[0.99] cursor-pointer group border border-gray-100 ${isSoldOut ? 'grayscale opacity-70 cursor-not-allowed' : ''}`}
                                 >
-                                    <div className="relative aspect-[16/9] w-full bg-gray-200">
+                                    <div className="relative aspect-[16/5] w-full bg-gray-100 rounded-[24px] overflow-hidden">
                                         {room.imageUrls && room.imageUrls.length > 0 ? (
                                             <img
                                                 src={room.imageUrls[0]}
                                                 alt={room.name}
-                                                className="w-full h-full object-cover"
+                                                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                                             />
                                         ) : (
                                             <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Image</div>
@@ -274,20 +314,26 @@ export default function AppointmentPage() {
                                         )}
                                     </div>
 
-                                    <div className="p-5">
-                                        <div className="flex justify-between items-baseline mb-1">
-                                            <h3 className="text-xl font-bold text-gray-900 truncate pr-2">{room.name}</h3>
-                                            <div className="flex-shrink-0 text-right">
-                                                <span className="text-base font-bold text-gray-900">{Math.floor(room.basePrice || 0).toLocaleString()}</span>
-                                                <span className="text-xs text-gray-500 font-normal">บาท/คืน</span>
+                                    <div className="px-4 py-4">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <h3 className="text-xl font-bold text-gray-900 truncate pr-2 tracking-tight">{room.name}</h3>
+                                            <div className="flex-shrink-0 text-right leading-none">
+                                                <span className="text-lg font-bold text-gray-900">{Math.floor(room.basePrice || 0).toLocaleString()}</span>
+                                                <span className="text-xs text-gray-500 font-medium ml-1">บาท/คืน</span>
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                            <p className="text-sm text-gray-400 font-medium">Vip</p> {/* Placeholder for Room Category if not available, or use description snippet */}
-                                            <div className="flex items-center gap-1">
+                                            <p className="text-sm text-gray-400 font-bold">
+                                                {(room as any).capacity ? `Max ${(room as any).capacity} Guests` : 'Vip'}
+                                            </p>
+                                            <div className="flex items-center gap-1.5">
                                                 <StarIcon />
-                                                <span className="text-sm font-bold text-gray-800">4.9</span>
-                                                <span className="text-xs text-gray-400">(10 reviews)</span>
+                                                <span className="text-sm font-bold text-gray-900">
+                                                    {reviewsStats[room.id!]?.rating > 0 ? reviewsStats[room.id!].rating.toFixed(1) : 'New'}
+                                                </span>
+                                                <span className="text-[10px] text-gray-400 font-medium tracking-wide">
+                                                    {reviewsStats[room.id!]?.count > 0 ? `${reviewsStats[room.id!].count} reviews` : '(No reviews)'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>

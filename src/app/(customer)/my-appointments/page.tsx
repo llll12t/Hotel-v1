@@ -120,7 +120,7 @@ export default function MyAppointmentsPage() {
     if (liffError) return <div className="p-4 text-center text-[var(--error)]">LIFF Error: {liffError}</div>;
 
     return (
-        <div className="min-h-screen bg-[var(--background)] text-[var(--text)]">
+        <div className="min-h-screen bg-[#f6f6f6] text-gray-900 font-sans">
             <CustomerHeader showBackButton={true} showActionButtons={false} />
             <div className="p-4 space-y-5 pb-20">
                 <Notification {...notification} />
@@ -128,7 +128,7 @@ export default function MyAppointmentsPage() {
                 <ConfirmationModal
                     show={!!appointmentToCancel}
                     title="ยืนยันการยกเลิก"
-                    message={`คุณต้องการยกเลิกการนัดหมายบริการ ${appointmentToCancel?.serviceInfo.name} ใช่หรือไม่?`}
+                    message={`คุณต้องการยกเลิกการนัดหมาย ${appointmentToCancel?.bookingType === 'room' ? 'ห้องพัก' : 'บริการ'} ใช่หรือไม่?`}
                     onConfirm={confirmCancelAppointment}
                     onCancel={() => setAppointmentToCancel(null)}
                     isProcessing={isCancelling}
@@ -140,21 +140,20 @@ export default function MyAppointmentsPage() {
                 />
 
                 <div className="space-y-4">
-                    <div className="font-bold text-md text-[var(--text)]">นัดหมายของฉัน</div>
+                    <h1 className="text-xl font-bold text-gray-900 px-1">นัดหมายของฉัน</h1>
 
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-12">
-                            <SpaFlowerIcon className="w-14 h-14 animate-spin text-[var(--primary)]" style={{ animationDuration: '3s' }} />
-                            <p className="text-sm text-[var(--text-muted)] mt-2">Loading data...</p>
+                            <SpaFlowerIcon className="w-10 h-10 animate-spin text-gray-400" style={{ animationDuration: '3s' }} />
                         </div>
                     ) : appointments.length === 0 ? (
-                        <div className="text-center text-[var(--text-muted)] pt-10 bg-[var(--card)] p-8 rounded-xl shadow-sm border border-[var(--border)]">
-                            <p className="font-semibold">ไม่มีรายการนัดหมายที่กำลังดำเนินการ</p>
+                        <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+                            <p className="font-medium text-gray-500 mb-4">ไม่มีรายการจองที่กำลังดำเนินการ</p>
                             <button
-                                className="mt-4 px-5 py-2.5 bg-[#ff7a3d] text-white text-sm rounded-2xl font-semibold hover:bg-[#ff6a24] transition-all active:scale-95 shadow-sm"
+                                className="px-6 py-3 bg-black text-white text-sm rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
                                 onClick={() => router.push('/appointment')}
                             >
-                                จองบริการใหม่
+                                จองห้องพักใหม่
                             </button>
                         </div>
                     ) : (
@@ -169,21 +168,20 @@ export default function MyAppointmentsPage() {
                     )}
                 </div>
 
-                <div className="flex flex-col items-center mt-6">
+                <div className="flex flex-col items-center mt-8">
                     <button
-                        className="text-white flex items-center gap-2 focus:outline-none font-semibold bg-[#1f1f22] px-4 py-2 rounded-full shadow-sm hover:bg-black transition-colors"
+                        className="text-gray-500 flex items-center gap-2 font-medium bg-white border border-gray-200 px-5 py-2.5 rounded-full shadow-sm hover:bg-gray-50 transition-colors pointer-events-auto"
                         onClick={() => setShowHistory(v => !v)}
                     >
-                        <span className="text-sm">{showHistory ? '▲ ซ่อนประวัติที่ผ่านมา' : '▼ ดูประวัติที่ผ่านมา'}</span>
+                        <span className="text-sm">{showHistory ? '▲ ซ่อนประวัติ' : '▼ ดูประวัติการจอง'}</span>
                     </button>
                 </div>
 
                 {showHistory && (
-                    <div className="space-y-4 mt-2 animate-fade-in-up">
-                        <div className="text-sm text-[var(--text-muted)] font-medium ml-1">ประวัติการใช้บริการ</div>
+                    <div className="space-y-3 mt-4 animate-fade-in-up">
                         {historyBookings.length === 0 ? (
-                            <div className="text-center text-[var(--text-muted)] py-8 bg-[var(--card)] p-4 rounded-xl border border-[var(--border)]">
-                                <p className="text-sm">ยังไม่มีประวัติการใช้บริการ</p>
+                            <div className="text-center text-gray-400 py-8 bg-white rounded-xl border border-gray-100">
+                                <p className="text-sm">ไม่มีประวัติการจอง</p>
                             </div>
                         ) : (
                             historyBookings.slice(0, 10).map(job => (
