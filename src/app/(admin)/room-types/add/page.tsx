@@ -7,22 +7,35 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/app/components/Toast';
 import ImageUploadBase64 from '@/app/components/ImageUploadBase64';
 
-const Icons = {
-    Back: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>,
-    Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-};
+// ── Icons ─────────────────────────────────────────────────────────────────
+const BackIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>;
+const XIcon = () => <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>;
+
+// ── Field Label ───────────────────────────────────────────────────────────
+const FL = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+        {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+);
+
+const inputCls = 'w-full border border-gray-200 bg-gray-50 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 outline-none transition-all';
+
+// ── Section Card ──────────────────────────────────────────────────────────
+const Card = ({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) => (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50">
+            <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+            {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        </div>
+        <div className="p-5">{children}</div>
+    </div>
+);
 
 export default function AddRoomTypePage() {
     const [formData, setFormData] = useState({
-        name: '',
-        basePrice: '',
-        maxGuests: '',
-        sizeSqM: '',
-        description: '',
-        amenities: [] as string[],
-        imageUrls: [''] as string[],
+        name: '', basePrice: '', maxGuests: '', sizeSqM: '', description: '',
+        amenities: [] as string[], imageUrls: [''] as string[],
     });
-
     const [amenityInput, setAmenityInput] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -33,37 +46,23 @@ export default function AddRoomTypePage() {
 
     const handleImageChange = (index: number, url: string) => {
         setFormData(prev => {
-            const newImages = [...prev.imageUrls];
-            if (url) {
-                if (index < newImages.length) {
-                    newImages[index] = url;
-                } else {
-                    newImages.push(url);
-                }
-            } else {
-                newImages.splice(index, 1);
-            }
-            return { ...prev, imageUrls: newImages };
+            const imgs = [...prev.imageUrls];
+            if (url) { index < imgs.length ? (imgs[index] = url) : imgs.push(url); }
+            else { imgs.splice(index, 1); }
+            return { ...prev, imageUrls: imgs };
         });
     };
 
     const renderImageSlots = () => {
         const slots = [...formData.imageUrls];
-        if (slots.length < 5 && slots[slots.length - 1] !== '') {
-            slots.push('');
-        }
-
+        if (slots.length < 5 && slots[slots.length - 1] !== '') slots.push('');
         return slots.map((url, idx) => (
             <div key={idx} className="relative">
-                <span className="absolute -top-2 -left-2 z-10 bg-gray-900 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                <span className="absolute -top-2 -left-2 z-10 bg-[#1A1A1A] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
                     {idx + 1}
                 </span>
-                <ImageUploadBase64
-                    imageUrl={url}
-                    onImageChange={(val) => handleImageChange(idx, val)}
-                    compact={idx > 0}
-                />
-                {idx === 0 && <p className="text-center text-xs text-gray-500 mt-1 font-medium">Main image</p>}
+                <ImageUploadBase64 imageUrl={url} onImageChange={val => handleImageChange(idx, val)} compact={idx > 0} />
+                {idx === 0 && <p className="text-center text-[10px] text-gray-400 mt-1.5 font-medium">รูปหลัก</p>}
             </div>
         ));
     };
@@ -74,20 +73,13 @@ export default function AddRoomTypePage() {
         setAmenityInput('');
     };
 
-    const removeAmenity = (index: number) => {
-        setFormData(prev => ({ ...prev, amenities: prev.amenities.filter((_, i) => i !== index) }));
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name) return showToast('Please enter room type name', 'error');
-        if (!formData.basePrice) return showToast('Please enter base price', 'error');
-
-        const validImages = formData.imageUrls.filter(url => url && url.length > 0);
-
+        if (!formData.name) return showToast('กรุณาใส่ชื่อประเภทห้อง', 'error');
+        if (!formData.basePrice) return showToast('กรุณาใส่ราคาต่อคืน', 'error');
         setLoading(true);
         try {
-            const dataToSave = {
+            await addDoc(collection(db, 'roomTypes'), {
                 name: formData.name,
                 basePrice: Number(formData.basePrice) || 0,
                 maxGuests: Number(formData.maxGuests) || 2,
@@ -95,111 +87,125 @@ export default function AddRoomTypePage() {
                 description: formData.description || '',
                 amenities: formData.amenities,
                 reviewQuestions: [],
-                imageUrls: validImages,
+                imageUrls: formData.imageUrls.filter(u => u?.length > 0),
                 status: 'available',
                 createdAt: serverTimestamp(),
-            };
-
-            await addDoc(collection(db, 'roomTypes'), dataToSave);
-            showToast('Room type created', 'success');
+            });
+            showToast('เพิ่มประเภทห้องสำเร็จ', 'success');
             router.push('/room-types');
-        } catch (error: any) {
-            showToast('Error: ' + error.message, 'error');
-        } finally {
-            setLoading(false);
-        }
+        } catch (err: any) { showToast('เกิดข้อผิดพลาด: ' + err.message, 'error'); }
+        finally { setLoading(false); }
     };
 
-    const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-gray-500 focus:border-gray-500';
-
     return (
-        <div className="max-w-5xl mx-auto p-4">
-            <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><Icons.Back /></button>
-                <h1 className="text-xl font-bold text-gray-900">Add room type</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+                <button onClick={() => router.back()} className="p-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 transition-all">
+                    <BackIcon />
+                </button>
+                <div>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">เพิ่มประเภทห้องพัก</h1>
+                    <p className="text-xs text-gray-400 mt-0.5">กรอกข้อมูลรายละเอียดของประเภทห้อง</p>
+                </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 space-y-4">
-                        <div className="bg-white border rounded-lg p-4 shadow-sm">
-                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">Basic info</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                    {/* Left: Info */}
+                    <div className="lg:col-span-2 space-y-5">
+                        <Card title="ข้อมูลพื้นฐาน">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Room type name *</label>
-                                    <input name="name" value={formData.name} onChange={handleChange} required className={inputClass} placeholder="Standard, Deluxe, Suite" />
+                                    <FL required>ชื่อประเภทห้อง</FL>
+                                    <input name="name" value={formData.name} onChange={handleChange} required className={inputCls} placeholder="Standard, Deluxe, Suite..." />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Base price/night *</label>
-                                    <input type="number" name="basePrice" value={formData.basePrice} onChange={handleChange} required className={inputClass} placeholder="0" />
+                                    <FL required>ราคาต่อคืน (฿)</FL>
+                                    <input type="number" name="basePrice" value={formData.basePrice} onChange={handleChange} required className={inputCls} placeholder="0" min="0" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Room size (sqm)</label>
-                                    <input type="number" name="sizeSqM" value={formData.sizeSqM} onChange={handleChange} className={inputClass} placeholder="32" />
+                                    <FL>ผู้เข้าพักสูงสุด (ท่าน)</FL>
+                                    <input type="number" name="maxGuests" value={formData.maxGuests} onChange={handleChange} className={inputCls} placeholder="2" min="1" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Max guests</label>
-                                    <input type="number" name="maxGuests" value={formData.maxGuests} onChange={handleChange} className={inputClass} placeholder="2" />
+                                    <FL>ขนาดห้อง (ตร.ม.)</FL>
+                                    <input type="number" name="sizeSqM" value={formData.sizeSqM} onChange={handleChange} className={inputCls} placeholder="32" min="0" />
                                 </div>
                             </div>
-                        </div>
+                        </Card>
 
-                        <div className="bg-white border rounded-lg p-4 shadow-sm">
-                            <h2 className="text-base font-semibold mb-3 text-gray-800 border-b pb-2">Description & amenities</h2>
-                            <div className="space-y-3">
+                        <Card title="รายละเอียด & สิ่งอำนวยความสะดวก">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className={inputClass} placeholder="Room details" />
+                                    <FL>คำอธิบาย</FL>
+                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className={`${inputCls} resize-none`} placeholder="รายละเอียดของห้องพัก..." />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Amenities</label>
-                                    <div className="flex gap-2 mb-2">
+                                    <FL>สิ่งอำนวยความสะดวก</FL>
+                                    <div className="flex gap-2 mb-3">
                                         <input
-                                            type="text"
-                                            value={amenityInput}
+                                            type="text" value={amenityInput}
                                             onChange={e => setAmenityInput(e.target.value)}
-                                            className="flex-1 px-3 py-1.5 border rounded-md text-sm"
-                                            placeholder="WiFi, bathtub"
                                             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAmenity())}
+                                            className={`${inputCls} flex-1`} placeholder="WiFi, อ่างอาบน้ำ, มินิบาร์..."
                                         />
-                                        <button type="button" onClick={addAmenity} className="bg-gray-900 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-800">Add</button>
+                                        <button type="button" onClick={addAmenity}
+                                            className="px-4 py-2.5 text-sm font-bold text-white rounded-xl hover:opacity-90 transition-all flex-shrink-0"
+                                            style={{ backgroundColor: '#1A1A1A' }}>
+                                            +เพิ่ม
+                                        </button>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {formData.amenities.map((item, idx) => (
-                                            <span key={idx} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs text-gray-800 border border-gray-200">
+                                            <span key={idx} className="inline-flex items-center gap-1.5 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-700">
                                                 {item}
-                                                <button type="button" onClick={() => removeAmenity(idx)} className="text-gray-400 hover:text-red-600"><Icons.Trash /></button>
+                                                <button type="button" onClick={() => setFormData(p => ({ ...p, amenities: p.amenities.filter((_, i) => i !== idx) }))}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors">
+                                                    <XIcon />
+                                                </button>
                                             </span>
                                         ))}
+                                        {formData.amenities.length === 0 && (
+                                            <p className="text-xs text-gray-400">ยังไม่มีสิ่งอำนวยความสะดวก</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="bg-white border rounded-lg p-4 shadow-sm">
-                            <div className="flex justify-between items-center mb-3 border-b pb-2">
-                                <h2 className="text-base font-semibold text-gray-800">Room images</h2>
-                                <span className="text-xs text-gray-500">{formData.imageUrls.filter(x => x).length}/5</span>
-                            </div>
-
+                    {/* Right: Images */}
+                    <div>
+                        <Card title="รูปภาพห้องพัก" sub={`${formData.imageUrls.filter(x => x).length}/5 รูป`}>
                             <div className="grid grid-cols-2 gap-3">
                                 {renderImageSlots().map((slot, idx) => (
-                                    <div key={idx} className={`${idx === 0 ? 'col-span-2' : 'col-span-1'}`}>
+                                    <div key={idx} className={idx === 0 ? 'col-span-2' : 'col-span-1'}>
                                         {slot}
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-3 text-center">* JPG/PNG up to 5MB</p>
-                        </div>
+                            <p className="text-[10px] text-gray-400 mt-3 text-center">* JPG/PNG ขนาดไม่เกิน 5MB</p>
+                        </Card>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button type="button" onClick={() => router.back()} className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                    <button type="submit" disabled={loading} className="px-8 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors shadow-lg">
-                        {loading ? 'Saving...' : 'Save'}
+                {/* Footer Actions */}
+                <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
+                    <button type="button" onClick={() => router.back()}
+                        className="px-6 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" disabled={loading}
+                        className="px-8 py-2.5 text-sm font-bold text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-sm"
+                        style={{ backgroundColor: '#1A1A1A' }}>
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                กำลังบันทึก...
+                            </span>
+                        ) : 'บันทึก'}
                     </button>
                 </div>
             </form>

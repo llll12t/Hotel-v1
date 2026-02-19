@@ -11,29 +11,20 @@ import AppointmentCard from './AppointmentCard';
 import QrCodeModal from '@/app/components/common/QrCodeModal';
 import HistoryCard from './HistoryCard';
 import { useRouter } from 'next/navigation';
-import { Appointment } from '@/types';
-import SpaFlowerIcon from '@/app/components/common/SpaFlowerIcon';
+import LoadingIcon from '@/app/components/common/LoadingIcon';
 import Link from 'next/link';
+import { Appointment } from '@/types';
 
-// Icons
+// ---- Icons ----
 const CalendarIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-        <path d="M12.75 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.5 15.75a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5ZM8.25 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9.75 15.75a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5ZM10.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 15.75a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5ZM12.75 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM14.25 15.75a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5ZM15 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 15.75a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5ZM15 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 13.5a.75.75 0 1 0 0-1.5 .75.75 0 0 0 0 1.5Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
         <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
     </svg>
 );
 
 const GiftIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H4.5a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125H3.375Z" />
-    </svg>
-);
-
-const CutleryIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
-        <path fillRule="evenodd" d="M10.5 4.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-1.5 0V5.25a.75.75 0 0 1 .75-.75ZM7.828 3.53a.75.75 0 0 0-1.06-1.06l-4.5 4.5a.75.75 0 0 0 0 1.06l4.5 4.5a.75.75 0 0 0 1.06-1.06L4.56 8.25h14.69a.75.75 0 0 0 0-1.5H4.56l3.268-3.22Z" clipRule="evenodd" />
-        {/* Simplified cutlery representation */}
-        <path d="M18.75 3a.75.75 0 0 0-1.5 0v4.5h-1.5v-4.5a.75.75 0 0 0-1.5 0v5.25c0 1.6 1.056 2.96 2.443 3.393.208 3.657.207 7.7.207 7.827a.75.75 0 0 0 1.5 0c0-.525 0-4.524-.22-8.083A3.753 3.753 0 0 0 20.25 8.25V3Z" />
     </svg>
 );
 
@@ -60,12 +51,10 @@ export default function MyAppointmentsPage() {
 
     useEffect(() => {
         if (liffLoading) return;
-
         if (!profile?.userId) {
             if (!liffLoading) setLoading(false);
             return;
         }
-
         setLoading(true);
 
         const appointmentsQuery = query(
@@ -130,26 +119,25 @@ export default function MyAppointmentsPage() {
         setAppointmentToCancel(null);
     };
 
+    // ---- Loading / Error States ----
     if (liffLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--background)]">
-                <SpaFlowerIcon className="w-16 h-16 animate-spin text-[var(--primary)]" style={{ animationDuration: '3s' }} />
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+                <LoadingIcon className="w-12 h-12 text-gray-400" />
             </div>
         );
     }
-    if (liffError) return <div className="p-4 text-center text-[var(--error)]">LIFF Error: {liffError}</div>;
+    if (liffError) return <div className="p-4 text-center text-red-500">LIFF Error: {liffError}</div>;
 
-    // Header Background Image (Luxury Night Pool)
     const headerBgUrl = storeProfile?.headerImage;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans text-[#1A1A1A]">
             <Notification {...notification} />
-
             <ConfirmationModal
                 show={!!appointmentToCancel}
                 title="ยืนยันการยกเลิก"
-                message={`คุณต้องการยกเลิกการนัดหมาย ${appointmentToCancel?.bookingType === 'room' ? 'ห้องพัก' : 'บริการ'} ใช่หรือไม่?`}
+                message={`คุณต้องการยกเลิกการจอง ${appointmentToCancel?.bookingType === 'room' ? 'ห้องพัก' : 'บริการ'} ใช่หรือไม่?`}
                 onConfirm={confirmCancelAppointment}
                 onCancel={() => setAppointmentToCancel(null)}
                 isProcessing={isCancelling}
@@ -160,113 +148,124 @@ export default function MyAppointmentsPage() {
                 appointmentId={selectedAppointmentId}
             />
 
-            {/* --- Custom Header --- */}
-            <div className="relative h-[200px] w-full overflow-hidden">
-                {/* Background Image & Overlay */}
-                <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${headerBgUrl})` }}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/60"></div>
-                </div>
+            {/* ── Header ── */}
+            <div className="relative h-[165px] w-full overflow-hidden">
+                {/* BG Image */}
+                {headerBgUrl ? (
+                    <>
+                        <div
+                            className="absolute inset-0 bg-cover bg-center scale-105"
+                            style={{ backgroundImage: `url(${headerBgUrl})` }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/55 to-black/30" />
+                    </>
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900" />
+                )}
 
                 {/* Header Content */}
-                <div className="relative z-10 px-5 pt-8 flex justify-between items-start">
-                    {/* User Profile */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/90 shadow-lg">
-                            {profile?.pictureUrl ? (
-                                <img src={profile.pictureUrl} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-white/20 flex items-center justify-center">
-                                    <span className="text-white text-[10px]">User</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="text-white">
-                            <p className="text-[11px] text-white/80 font-medium tracking-wide">Goodmorning</p>
-                            <h1 className="text-lg font-bold leading-none tracking-tight mt-0.5">{profile?.displayName || 'Guest'}</h1>
-                        </div>
+                <div className="relative z-10 h-full flex items-center justify-between px-6 pb-12">
+                    {/* Left: greeting + name */}
+                    <div className="text-white">
+                        <p className="text-[11px] text-white/70 font-medium tracking-wide mb-0.5">Goodmorning</p>
+                        <h1 className="text-xl font-bold leading-none tracking-tight">{profile?.displayName || 'Guest'}</h1>
                     </div>
 
-                    {/* Status Box (Matching reference white style) */}
-                    <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl flex flex-col items-center justify-center shadow-lg min-w-[80px]">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Status</span>
-                        <span className="text-xs font-bold text-emerald-600">VIP Member</span>
+                    {/* Right: Avatar */}
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/80 shadow-xl flex-shrink-0">
+                        {profile?.pictureUrl ? (
+                            <img src={profile.pictureUrl} alt="avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">U</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* --- Main Content Sheet --- */}
-            <div className="bg-white rounded-t-[32px] -mt-12 relative z-20 min-h-[calc(100vh-160px)] pb-24 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+            {/* ── White Card Sheet ── */}
+            <div className="bg-white rounded-[28px] -mt-8 relative z-20 min-h-[calc(100vh-120px)] mx-3 pb-20 shadow-sm">
 
-                {/* Tabs */}
-                <div className="px-5 pt-6 pb-2 flex gap-3">
-                    <button className="flex-1 bg-black text-white py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:bg-gray-900 transition-all font-bold text-[13px] tracking-wide">
+                {/* Tab Bar */}
+                <div className="px-4 pt-5 pb-4 flex gap-2.5">
+                    {/* Active tab */}
+                    <button className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] text-white py-3.5 rounded-2xl font-bold text-sm shadow-md">
                         <CalendarIcon />
-                        <span>การนัดหมาย</span>
+                        <span>การนัดหมายของฉัน</span>
                     </button>
 
+                    {/* Inactive tab */}
                     <Link href="/my-coupons" className="flex-1">
-                        <div className="bg-white border border-gray-100/50 text-gray-500 py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-gray-50 transition-all font-bold text-[13px] tracking-wide shadow-sm ring-1 ring-gray-100">
+                        <div className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-500 py-3.5 rounded-2xl font-semibold text-sm hover:bg-gray-50 transition-all">
                             <GiftIcon />
                             <span>คูปอง</span>
                         </div>
                     </Link>
                 </div>
 
-                {/* Appointments List */}
-                <div className="px-6">
+                {/* Content */}
+                <div className="px-4 pt-2">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-12">
-                            <SpaFlowerIcon className="w-10 h-10 animate-spin text-gray-400" style={{ animationDuration: '3s' }} />
+                        <div className="flex flex-col items-center justify-center py-16">
+                            <LoadingIcon className="w-10 h-10 text-gray-300" />
                         </div>
                     ) : appointments.length === 0 ? (
-                        <div className="text-center py-12">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                 <CalendarIcon />
                             </div>
-                            <p className="font-medium text-gray-900 mb-2">ไม่มีการจองในขณะนี้</p>
-                            <p className="text-xs text-gray-500 mb-6">เริ่มจองห้องพักผ่อนของคุณได้เลย</p>
+                            <p className="font-bold text-gray-900 mb-1">ไม่มีการจองในขณะนี้</p>
+                            <p className="text-xs text-gray-500 mb-6 leading-relaxed">เริ่มจองห้องพักหรือบริการของคุณได้เลย</p>
                             <button
-                                className="px-6 py-3 bg-black text-white text-sm rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
+                                className="px-6 py-3 bg-[#1A1A1A] text-white text-sm rounded-xl font-bold hover:opacity-90 transition-all shadow-lg active:scale-95"
                                 onClick={() => router.push('/appointment')}
                             >
-                                จองห้องพักใหม่
+                                จองเลย
                             </button>
                         </div>
                     ) : (
-                        appointments.map((job) => (
-                            <AppointmentCard
-                                key={job.id}
-                                job={job}
-                                onQrCodeClick={() => handleQrCodeClick(job.id!)}
-                                onCancelClick={handleCancelClick}
-                            />
-                        ))
+                        <div className="space-y-0">
+                            {appointments.map((job) => (
+                                <AppointmentCard
+                                    key={job.id}
+                                    job={job}
+                                    onQrCodeClick={() => handleQrCodeClick(job.id!)}
+                                    onCancelClick={handleCancelClick}
+                                />
+                            ))}
+                        </div>
                     )}
 
-                    {/* History Toggle */}
-                    <div className="flex flex-col items-center mt-8 pb-10">
+                    {/* History Button */}
+                    <div className="mt-4 mb-2">
                         <button
-                            className="text-gray-400 flex items-center gap-2 font-medium text-xs hover:text-gray-600 transition-colors"
                             onClick={() => setShowHistory(v => !v)}
+                            className="w-full py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-500 font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                         >
-                            <span className="text-xs">{showHistory ? '▲ ซ่อนประวัติ' : '▼ ดูประวัติการจอง'}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {showHistory ? 'ซ่อนประวัติ' : 'ประวัติการจอง'}
                         </button>
+                    </div>
 
-                        {showHistory && (
-                            <div className="w-full mt-4 space-y-4 animate-fade-in-up">
-                                {historyBookings.map(job => (
+                    {/* History List */}
+                    {showHistory && (
+                        <div className="space-y-3 mt-3 pb-6 animate-fade-in-up">
+                            {historyBookings.length === 0 ? (
+                                <p className="text-center text-xs text-gray-400 py-6">ยังไม่มีประวัติการจอง</p>
+                            ) : (
+                                historyBookings.map(job => (
                                     <HistoryCard
                                         key={job.id}
                                         appointment={job}
                                         onBookAgain={() => { router.push('/appointment'); }}
                                     />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

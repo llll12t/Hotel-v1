@@ -7,7 +7,7 @@ import { collection, doc, onSnapshot, query, orderBy, getDocs } from 'firebase/f
 import { redeemReward } from '@/app/actions/rewardActions';
 import { Notification } from '@/app/components/common/NotificationComponent';
 import { useProfile } from '@/context/ProfileProvider';
-import SpaFlowerIcon from '@/app/components/common/SpaFlowerIcon';
+import LoadingIcon from '@/app/components/common/LoadingIcon';
 
 // Icons
 const StarIcon = () => (
@@ -140,8 +140,8 @@ export default function RewardsPage() {
 
     if (loading || liffLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-                <SpaFlowerIcon className="w-16 h-16 animate-spin text-gray-900" style={{ animationDuration: '3s' }} />
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <LoadingIcon className="w-12 h-12 text-gray-300" />
             </div>
         );
     }
@@ -150,7 +150,7 @@ export default function RewardsPage() {
     const headerBgUrl = storeProfile?.headerImage;
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-[#1A1A1A]">
+        <div className="min-h-screen bg-gray-100 font-sans text-[#1A1A1A]">
             <Notification {...notification} title={notification.title || ''} />
 
             {/* Custom Confirmation Modal (Inline for simplicity or import) */}
@@ -185,41 +185,35 @@ export default function RewardsPage() {
                 </div>
             )}
 
-            {/* --- Custom Header --- */}
-            <div className="relative h-[200px] w-full overflow-hidden">
-                <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${headerBgUrl})` }}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/60"></div>
-                </div>
-
-                <div className="relative z-10 px-5 pt-8 flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/90 shadow-lg">
-                            {liffProfile?.pictureUrl ? (
-                                <img src={liffProfile.pictureUrl} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-white/20 flex items-center justify-center">
-                                    <span className="text-white text-[10px]">User</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="text-white">
-                            <p className="text-[11px] text-white/80 font-medium tracking-wide">Goodmorning</p>
-                            <h1 className="text-lg font-bold leading-none tracking-tight mt-0.5">{liffProfile?.displayName || 'Guest'}</h1>
-                        </div>
+            {/* ── Header ── */}
+            <div className="relative h-[165px] w-full overflow-hidden">
+                {headerBgUrl ? (
+                    <>
+                        <div className="absolute inset-0 bg-cover bg-center scale-105" style={{ backgroundImage: `url(${headerBgUrl})` }} />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/55 to-black/30" />
+                    </>
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900" />
+                )}
+                <div className="relative z-10 h-full flex items-center justify-between px-6 pb-4">
+                    <div className="text-white">
+                        <p className="text-[11px] text-white/70 font-medium tracking-wide mb-0.5">Goodmorning</p>
+                        <h1 className="text-xl font-bold leading-none tracking-tight">{liffProfile?.displayName || 'Guest'}</h1>
                     </div>
-
-                    <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl flex flex-col items-center justify-center shadow-lg min-w-[80px]">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Status</span>
-                        <span className="text-xs font-bold text-emerald-600">VIP Member</span>
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/80 shadow-xl flex-shrink-0">
+                        {liffProfile?.pictureUrl ? (
+                            <img src={liffProfile.pictureUrl} alt="avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">U</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* --- Main Content Sheet --- */}
-            <div className="bg-white rounded-t-[32px] -mt-12 relative z-20 min-h-[calc(100vh-160px)] pb-12 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+            {/* ── White Card Sheet ── */}
+            <div className="bg-white rounded-[28px] -mt-8 relative z-20 min-h-[calc(100vh-130px)] mx-3 pb-12 shadow-sm">
 
                 {/* Points Card (Floating Over Sheet) */}
                 <div className="px-5 -mt-8 relative z-30 mb-6">

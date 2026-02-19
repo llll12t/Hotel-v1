@@ -8,7 +8,7 @@ import { th } from "date-fns/locale";
 import { db } from "@/app/lib/firebase";
 import { useLiffContext } from "@/context/LiffProvider";
 import { useToast } from "@/app/components/Toast";
-import LoadingScreen from "@/app/components/common/LoadingScreen";
+import LoadingIcon from "@/app/components/common/LoadingIcon";
 import { RoomType } from "@/types";
 
 function GuestInfoContent() {
@@ -139,7 +139,11 @@ function GuestInfoContent() {
   };
 
   if (loading) {
-    return <LoadingScreen spinnerStyle={{ animationDuration: "3s" }} />;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <LoadingIcon className="w-12 h-12 text-gray-300" />
+      </div>
+    );
   }
 
   if (!roomTypeId) return null;
@@ -242,7 +246,11 @@ function GuestInfoContent() {
 
 export default function GuestInfoPage() {
   return (
-    <Suspense fallback={<LoadingScreen spinnerStyle={{ animationDuration: "3s" }} />}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <LoadingIcon className="w-12 h-12 text-gray-300" />
+      </div>
+    }>
       <GuestInfoContent />
     </Suspense>
   );

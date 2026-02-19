@@ -6,7 +6,7 @@ import { db } from '@/app/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useProfile } from '@/context/ProfileProvider';
 import { RoomType } from '@/types';
-import LoadingScreen from '@/app/components/common/LoadingScreen';
+import LoadingIcon from '@/app/components/common/LoadingIcon';
 
 // --- Icons ---
 const StarIcon = () => (
@@ -120,7 +120,11 @@ function RoomDetailContent() {
     };
 
     if (loading || profileLoading) {
-        return <LoadingScreen spinnerStyle={{ animationDuration: '3s' }} />;
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <LoadingIcon className="w-12 h-12 text-gray-300" />
+            </div>
+        );
     }
     if (!roomType) return null;
 
@@ -252,11 +256,9 @@ export default function ServiceDetailPage() {
     return (
         <Suspense
             fallback={
-                <LoadingScreen
-                    color="#553734"
-                    backgroundClassName=""
-                    spinnerStyle={{ animationDuration: '3s' }}
-                />
+                <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                    <LoadingIcon className="w-12 h-12 text-gray-300" />
+                </div>
             }
         >
             <RoomDetailContent />

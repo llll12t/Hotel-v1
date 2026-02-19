@@ -9,21 +9,53 @@ import { useToast } from '@/app/components/Toast';
 import { RoomType, Room } from '@/types';
 import { createBooking } from '@/app/actions/appointmentActions';
 
+// ── Icons ───────────────────────────────────────────────────────────────────
+const BackIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>;
+const CalIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+const BedIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
+const UserIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
+const CheckIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>;
+
+// ── Field Label ─────────────────────────────────────────────────────────────
+const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+        {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+);
+
+// ── Input ───────────────────────────────────────────────────────────────────
+const inputCls = "w-full border border-gray-200 bg-gray-50 rounded-md px-3.5 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 outline-none transition-all";
+
+// ── Section Card ────────────────────────────────────────────────────────────
+const Section = ({ step, title, icon, children }: {
+    step?: number; title: string; icon?: React.ReactNode; children: React.ReactNode;
+}) => (
+    <div className="bg-white rounded-md border border-gray-100 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2.5">
+            {step && (
+                <div className="w-6 h-6 rounded-lg bg-[#1A1A1A] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {step}
+                </div>
+            )}
+            {icon && !step && <span className="text-gray-400">{icon}</span>}
+            <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+        </div>
+        <div className="p-5">{children}</div>
+    </div>
+);
+
+// ── Main Page ───────────────────────────────────────────────────────────────
 export default function CreateBookingPage() {
     const router = useRouter();
     const { showToast } = useToast();
 
-    // Steps: 1. Select Dates -> 2. Select Room Type -> 3. Select Room (Optional) -> 4. Guest Info
     const [checkInDate, setCheckInDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [checkOutDate, setCheckOutDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
-
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
-
     const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
     const [selectedRoomId, setSelectedRoomId] = useState('');
     const [unavailableRoomIds, setUnavailableRoomIds] = useState<Set<string>>(new Set());
-
     const [guestInfo, setGuestInfo] = useState({ fullName: '', phone: '', email: '', note: '', lineUserId: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -33,65 +65,46 @@ export default function CreateBookingPage() {
         const load = async () => {
             setLoading(true);
             try {
-                // Fetch Room Types
                 const rtSnap = await getDocs(query(collection(db, 'roomTypes'), orderBy('basePrice')));
                 setRoomTypes(rtSnap.docs.map(d => ({ id: d.id, ...d.data() } as RoomType)));
-
-                // Fetch Rooms
                 const rSnap = await getDocs(query(collection(db, 'rooms'), orderBy('number')));
                 setRooms(rSnap.docs.map(d => ({ id: d.id, ...d.data() } as Room)));
-
             } catch (e) {
                 console.error(e);
-                showToast('Load failed', 'error');
+                showToast('โหลดข้อมูลล้มเหลว', 'error');
             }
             setLoading(false);
         };
         load();
     }, []);
 
-    // Check Availability
+    // Availability Check
     useEffect(() => {
         if (!checkInDate || !checkOutDate) return;
-
-        const checkAvailability = async () => {
+        const check = async () => {
             try {
-                // Fetch active bookings 
-                // Note: 'status' 'in' query supports up to 10 values.
                 const q = query(
                     collection(db, 'appointments'),
                     where('bookingType', '==', 'room'),
                     where('status', 'in', ['pending', 'awaiting_confirmation', 'confirmed', 'in_progress'])
                 );
-
                 const snap = await getDocs(q);
                 const occupied = new Set<string>();
                 const userStart = new Date(checkInDate);
                 const userEnd = new Date(checkOutDate);
-
                 snap.docs.forEach(d => {
-                    const data = d.data();
-                    const bInfo = data.bookingInfo;
+                    const bInfo = d.data().bookingInfo;
                     if (!bInfo?.checkInDate || !bInfo?.checkOutDate || !bInfo?.roomId) return;
-
-                    const bStart = new Date(bInfo.checkInDate);
-                    const bEnd = new Date(bInfo.checkOutDate);
-
-                    // Check Overlap: (StartA < EndB) and (EndA > StartB)
-                    if (bStart < userEnd && bEnd > userStart) {
+                    if (new Date(bInfo.checkInDate) < userEnd && new Date(bInfo.checkOutDate) > userStart) {
                         occupied.add(bInfo.roomId);
                     }
                 });
                 setUnavailableRoomIds(occupied);
-            } catch (e) {
-                console.error("Error checking availability:", e);
-            }
+            } catch (e) { console.error(e); }
         };
-
-        checkAvailability();
+        check();
     }, [checkInDate, checkOutDate]);
 
-    // Filter available rooms
     const availableRooms = useMemo(() => {
         if (!selectedRoomTypeId) return [];
         return rooms.filter(r => r.roomTypeId === selectedRoomTypeId);
@@ -104,180 +117,320 @@ export default function CreateBookingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedRoomTypeId || !checkInDate || !checkOutDate || !guestInfo.fullName) {
-            return showToast('Please fill all required fields', 'error');
+            return showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
         }
-
         setIsSubmitting(true);
         try {
             const token = await auth.currentUser?.getIdToken();
-            if (!token) {
-                showToast('Unauthorized', 'error');
-                setIsSubmitting(false);
-                return;
-            }
-
-            const bookingData = {
+            if (!token) { showToast('ไม่พบการยืนยันตัวตน', 'error'); setIsSubmitting(false); return; }
+            const res = await createBooking({
                 userId: guestInfo.lineUserId || undefined,
                 roomTypeId: selectedRoomTypeId,
                 roomId: selectedRoomId || null,
-                checkInDate,
-                checkOutDate,
-                nights,
-                rooms: 1,
+                checkInDate, checkOutDate, nights, rooms: 1,
                 status: 'pending',
                 customerInfo: guestInfo,
-                paymentInfo: {
-                    totalPrice,
-                    paymentStatus: 'unpaid'
-                },
+                paymentInfo: { totalPrice, paymentStatus: 'unpaid' },
                 createdBy: { type: 'admin', id: auth.currentUser?.uid }
-            };
-
-            const res = await createBooking(bookingData, { adminToken: token });
-            if (!res.success) {
-                showToast(typeof res.error === 'string' ? res.error : 'Create booking failed', 'error');
-                return;
-            }
-            showToast('Booking created successfully', 'success');
+            }, { adminToken: token });
+            if (!res.success) { showToast(typeof res.error === 'string' ? res.error : 'สร้างการจองล้มเหลว', 'error'); return; }
+            showToast('สร้างการจองสำเร็จ', 'success');
             router.push('/dashboard');
-
-        } catch (e: any) {
-            showToast(e.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (e: any) { showToast(e.message, 'error'); }
+        finally { setIsSubmitting(false); }
     };
 
-    if (loading) return <div className="p-10 text-center">Loading...</div>;
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+                <p className="text-sm text-gray-400">กำลังโหลดข้อมูล...</p>
+            </div>
+        </div>
+    );
 
     return (
-        <div className="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
-                {/* 1. Date Selection */}
-                <section className="bg-white border rounded-lg p-5">
-                    <h2 className="font-semibold text-gray-900 mb-4">1. วันที่เข้าพัก (Dates)</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1">Check-in</label>
-                            <input type="date" value={checkInDate} onChange={e => setCheckInDate(e.target.value)} className="w-full border rounded p-2" />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1">Check-out</label>
-                            <input type="date" value={checkOutDate} onChange={e => setCheckOutDate(e.target.value)} className="w-full border rounded p-2" min={checkInDate} />
-                        </div>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-500">
-                        ระยะเวลา: {nights} คืน
-                    </div>
-                </section>
+            {/* ── Header ────────────────────────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-6">
+                <button
+                    onClick={() => router.back()}
+                    className="p-2 rounded-md bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 transition-all"
+                >
+                    <BackIcon />
+                </button>
+                <div>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">สร้างการจองใหม่</h1>
+                    <p className="text-xs text-gray-400 mt-0.5">กรอกข้อมูลเพื่อสร้างการจองห้องพัก</p>
+                </div>
+            </div>
 
-                {/* 2. Room Type Selection */}
-                <section className="bg-white border rounded-lg p-5">
-                    <h2 className="font-semibold text-gray-900 mb-4">2. ประเภทห้องพัก (Room Type)</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {roomTypes.map(rt => {
-                            const isSelected = selectedRoomTypeId === rt.id;
-                            const coverImage = rt.imageUrls?.find((url) => Boolean(url));
-                            return (
-                                <div key={rt.id} onClick={() => { setSelectedRoomTypeId(rt.id!); setSelectedRoomId(''); }}
-                                    className={`cursor-pointer border rounded-lg p-4 flex gap-4 transition-all duration-200 ${isSelected ? 'shadow-md scale-[1.01]' : 'hover:bg-gray-50 border-gray-200'}`}
-                                    style={isSelected ? { backgroundColor: '#1f2937', color: 'white', borderColor: '#1f2937' } : {}}
-                                >
-                                    <div className="w-16 h-16 bg-gray-200 rounded-md overflow-hidden flex-shrink-0">
-                                        {coverImage ? (
-                                            <img
-                                                src={coverImage}
-                                                alt={rt.name || 'Room image'}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500">
-                                                No image
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                {/* ── Left: Steps ───────────────────────────────────────── */}
+                <div className="lg:col-span-2 space-y-5">
+
+                    {/* Step 1 — Dates */}
+                    <Section step={1} title="วันที่เข้าพัก" icon={<CalIcon />}>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <FieldLabel required>Check-in</FieldLabel>
+                                <input
+                                    type="date"
+                                    value={checkInDate}
+                                    onChange={e => setCheckInDate(e.target.value)}
+                                    className={inputCls}
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel required>Check-out</FieldLabel>
+                                <input
+                                    type="date"
+                                    value={checkOutDate}
+                                    onChange={e => setCheckOutDate(e.target.value)}
+                                    min={checkInDate}
+                                    className={inputCls}
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-3 inline-flex items-center gap-2 bg-gray-50 border border-gray-100 px-4 py-2 rounded-md">
+                            <CalIcon />
+                            <span className="text-sm font-semibold text-gray-700">{nights} คืน</span>
+                            <span className="text-xs text-gray-400">
+                                ({format(new Date(checkInDate), 'dd/MM/yy')} → {format(new Date(checkOutDate), 'dd/MM/yy')})
+                            </span>
+                        </div>
+                    </Section>
+
+                    {/* Step 2 — Room Type */}
+                    <Section step={2} title="ประเภทห้องพัก">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {roomTypes.map(rt => {
+                                const isSelected = selectedRoomTypeId === rt.id;
+                                const coverImage = rt.imageUrls?.find(url => Boolean(url));
+                                return (
+                                    <div
+                                        key={rt.id}
+                                        onClick={() => { setSelectedRoomTypeId(rt.id!); setSelectedRoomId(''); }}
+                                        className={`cursor-pointer rounded-md border p-4 flex gap-4 items-center transition-all ${isSelected
+                                            ? 'shadow-lg scale-[1.01] border-transparent'
+                                            : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'
+                                            }`}
+                                        style={isSelected ? { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' } : {}}
+                                    >
+                                        {/* Thumbnail */}
+                                        <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
+                                            {coverImage ? (
+                                                <img src={coverImage} alt={rt.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                    <BedIcon />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className={`font-bold text-base truncate ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                                {rt.name || 'Room'}
+                                            </div>
+                                            <div className={`text-sm font-semibold mt-0.5 ${isSelected ? 'text-white/80' : 'text-gray-700'}`}>
+                                                {rt.basePrice?.toLocaleString()} <span className={`text-xs font-normal ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>บาท/คืน</span>
+                                            </div>
+                                            <div className={`text-xs mt-1 flex items-center gap-1 ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>
+                                                <UserIcon />
+                                                พักได้ {rt.maxGuests} ท่าน
+                                            </div>
+                                        </div>
+
+                                        {/* Check */}
+                                        {isSelected && (
+                                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                                                <CheckIcon />
                                             </div>
                                         )}
                                     </div>
-                                    <div>
-                                        <div className={`font-medium text-lg ${isSelected ? 'text-white' : 'text-gray-900'}`}>{rt.name || 'Room Name'}</div>
-                                        <div className={`text-sm ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>{rt.basePrice?.toLocaleString()} บาท/คืน</div>
-                                        <div className={`text-xs mt-1 ${isSelected ? 'text-gray-400' : 'text-gray-400'}`}>พักได้ {rt.maxGuests} ท่าน</div>
+                                );
+                            })}
+                        </div>
+                    </Section>
+
+                    {/* Step 3 — Room Number (Optional) */}
+                    {selectedRoomTypeId && (
+                        <Section step={3} title="เลขห้องพัก (ถ้ามี)">
+                            {availableRooms.length === 0 ? (
+                                <div className="text-center py-6">
+                                    <p className="text-sm text-gray-400">ไม่มีห้องในประเภทนี้ หรือยังไม่ได้สร้างข้อมูลห้อง</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                                    {/* None option */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedRoomId('')}
+                                        className={`py-3 rounded-md border text-xs font-bold transition-all ${selectedRoomId === ''
+                                            ? 'border-transparent text-white shadow-sm'
+                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                            }`}
+                                        style={selectedRoomId === '' ? { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' } : {}}
+                                    >
+                                        ไม่ระบุ
+                                    </button>
+                                    {availableRooms.map(r => {
+                                        const isOccupied = unavailableRoomIds.has(r.id);
+                                        const isSelected = selectedRoomId === r.id;
+                                        const displayLabel = r.number?.trim() || `#${r.id.slice(0, 3).toUpperCase()}`;
+                                        return (
+                                            <button
+                                                key={r.id}
+                                                type="button"
+                                                disabled={isOccupied}
+                                                onClick={() => setSelectedRoomId(r.id)}
+                                                className={`py-3 rounded-md border text-xs font-bold relative transition-all ${isOccupied
+                                                    ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                                                    : isSelected
+                                                        ? 'border-transparent text-white shadow-sm'
+                                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                    }`}
+                                                style={isSelected && !isOccupied ? { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' } : {}}
+                                            >
+                                                {isOccupied ? (
+                                                    <span className="line-through text-gray-300">{displayLabel}</span>
+                                                ) : displayLabel}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </Section>
+                    )}
+
+                    {/* Step 4 — Guest Info */}
+                    <Section step={4} title="ข้อมูลผู้เข้าพัก" icon={<UserIcon />}>
+                        <div className="space-y-4">
+                            <div>
+                                <FieldLabel required>ชื่อ-นามสกุล</FieldLabel>
+                                <input
+                                    type="text"
+                                    value={guestInfo.fullName}
+                                    onChange={e => setGuestInfo({ ...guestInfo, fullName: e.target.value })}
+                                    className={inputCls}
+                                    placeholder="กรอกชื่อ-นามสกุล"
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>เบอร์โทรศัพท์</FieldLabel>
+                                <input
+                                    type="tel"
+                                    value={guestInfo.phone}
+                                    onChange={e => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+                                    className={inputCls}
+                                    placeholder="0xx-xxx-xxxx"
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>LINE User ID (ไม่บังคับ)</FieldLabel>
+                                <input
+                                    type="text"
+                                    value={guestInfo.lineUserId}
+                                    onChange={e => setGuestInfo({ ...guestInfo, lineUserId: e.target.value })}
+                                    className={inputCls}
+                                    placeholder="U..."
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>หมายเหตุ</FieldLabel>
+                                <textarea
+                                    value={guestInfo.note}
+                                    onChange={e => setGuestInfo({ ...guestInfo, note: e.target.value })}
+                                    className={`${inputCls} resize-none`}
+                                    rows={3}
+                                    placeholder="ความต้องการพิเศษ..."
+                                />
+                            </div>
+                        </div>
+                    </Section>
+                </div>
+
+                {/* ── Right: Summary ────────────────────────────────────── */}
+                <div>
+                    <div className="sticky top-20 space-y-4">
+                        {/* Summary Card */}
+                        <div className="bg-white rounded-md border border-gray-100 overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-50">
+                                <h2 className="text-sm font-bold text-gray-900">สรุปการจอง</h2>
+                            </div>
+                            <div className="p-5 space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">ประเภทห้อง</span>
+                                    <span className="font-semibold text-gray-900 text-right max-w-[55%] truncate">{selectedRoomType?.name || '-'}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">เลขห้อง</span>
+                                    <span className="font-semibold text-gray-900">{selectedRoomId ? (rooms.find(r => r.id === selectedRoomId)?.number || '-') : 'ยังไม่ระบุ'}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">เช็คอิน</span>
+                                    <span className="font-semibold text-gray-900">{format(new Date(checkInDate), 'dd/MM/yyyy')}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">เช็คเอาท์</span>
+                                    <span className="font-semibold text-gray-900">{format(new Date(checkOutDate), 'dd/MM/yyyy')}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">จำนวนคืน</span>
+                                    <span className="font-semibold text-gray-900">{nights} คืน</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">ราคา/คืน</span>
+                                    <span className="font-semibold text-gray-900">{selectedRoomType?.basePrice?.toLocaleString() || '0'} บาท</span>
+                                </div>
+
+                                <div className="border-t border-dashed border-gray-200 my-1" />
+
+                                <div className="flex justify-between items-center">
+                                    <span className="font-bold text-gray-900">ยอดรวม</span>
+                                    <div className="text-right">
+                                        <span className="text-2xl font-bold text-gray-900">{totalPrice.toLocaleString()}</span>
+                                        <span className="text-xs text-gray-400 ml-1">บาท</span>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </section>
+                            </div>
+                        </div>
 
-                {/* 3. Room Selection (Optional) */}
-                {selectedRoomTypeId && (
-                    <section className="bg-white border rounded-lg p-5">
-                        <h2 className="font-semibold text-gray-900 mb-4">3. เลือกห้อง (ระบุหมายเลขห้อง - ถ้ามี)</h2>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                            {availableRooms.length === 0 ? <p className="col-span-full text-gray-500 text-sm">ไม่มีห้องว่างในประเภทนี้ (หรือยังไม่ได้สร้างข้อมูลห้อง)</p> :
-                                availableRooms.map(r => {
-                                    const isOccupied = unavailableRoomIds.has(r.id);
-                                    const isSelected = selectedRoomId === r.id;
-                                    return (
-                                        <button key={r.id}
-                                            type="button"
-                                            disabled={isOccupied}
-                                            onClick={() => setSelectedRoomId(r.id)}
-                                            className={`p-3 rounded-lg border text-center text-sm font-medium relative overflow-hidden transition-all
-                                                ${isSelected ? 'shadow-md scale-105' :
-                                                    isOccupied ? 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed' :
-                                                        'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}
-                                            style={isSelected ? { backgroundColor: '#2563eb', color: 'white', borderColor: '#2563eb' } : {}}
-                                        >
-                                            {r.number || r.id}
-                                            {isOccupied && <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 text-[10px] text-red-500 font-bold rotate-12">ไม่ว่าง</div>}
-                                        </button>
-                                    );
-                                })
-                            }
+                        {/* Checklist */}
+                        <div className="bg-gray-50 rounded-md border border-gray-100 p-4 space-y-2">
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">ความพร้อม</p>
+                            {[
+                                { ok: !!checkInDate && !!checkOutDate, label: 'ระบุวันที่แล้ว' },
+                                { ok: !!selectedRoomTypeId, label: 'เลือกประเภทห้องแล้ว' },
+                                { ok: !!guestInfo.fullName.trim(), label: 'กรอกชื่อผู้เข้าพักแล้ว' },
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center gap-2.5 text-xs">
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${item.ok ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+                                        {item.ok && <CheckIcon />}
+                                    </div>
+                                    <span className={item.ok ? 'text-gray-700 font-medium' : 'text-gray-400'}>{item.label}</span>
+                                </div>
+                            ))}
                         </div>
-                    </section>
-                )}
-            </div>
 
-            {/* Right Column: Guest & Summary */}
-            <div className="space-y-6">
-                <section className="bg-white border rounded-lg p-5">
-                    <h2 className="font-semibold text-gray-900 mb-4">ข้อมูลผู้เข้าพัก</h2>
-                    <div className="space-y-3">
-                        <div>
-                            <label className="text-xs font-medium text-gray-500">ชื่อ-นามสกุล</label>
-                            <input type="text" value={guestInfo.fullName} onChange={e => setGuestInfo({ ...guestInfo, fullName: e.target.value })} className="w-full border rounded p-2 text-sm" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-gray-500">เบอร์โทรศัพท์</label>
-                            <input type="tel" value={guestInfo.phone} onChange={e => setGuestInfo({ ...guestInfo, phone: e.target.value })} className="w-full border rounded p-2 text-sm" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-gray-500">LINE ID (Optional)</label>
-                            <input type="text" value={guestInfo.lineUserId} onChange={e => setGuestInfo({ ...guestInfo, lineUserId: e.target.value })} className="w-full border rounded p-2 text-sm" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-gray-500">Note</label>
-                            <textarea value={guestInfo.note} onChange={e => setGuestInfo({ ...guestInfo, note: e.target.value })} className="w-full border rounded p-2 text-sm" rows={2} />
-                        </div>
+                        {/* Submit Button */}
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting || !selectedRoomTypeId || !guestInfo.fullName.trim()}
+                            className="w-full py-3.5 text-sm font-bold text-white bg-[#1A1A1A] rounded-md hover:opacity-90 disabled:opacity-40 transition-all shadow-lg shadow-gray-900/10 active:scale-[0.98]"
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                    กำลังสร้างการจอง...
+                                </span>
+                            ) : 'ยืนยันการจอง →'}
+                        </button>
                     </div>
-                </section>
-
-                <section className="bg-gray-50 border rounded-lg p-5">
-                    <h2 className="font-semibold text-gray-900 mb-4">สรุปรายการ</h2>
-                    <div className="space-y-2 text-sm mb-4">
-                        <div className="flex justify-between"><span>ประเภทห้อง</span><span className="font-medium">{selectedRoomType?.name || '-'}</span></div>
-                        <div className="flex justify-between"><span>จำนวนคืน</span><span>{nights} คืน</span></div>
-                        <div className="flex justify-between"><span>ราคาต่อคืน</span><span>{selectedRoomType?.basePrice?.toLocaleString() || 0}</span></div>
-                        <div className="border-t pt-2 mt-2 flex justify-between font-bold text-lg">
-                            <span>ราคารวม</span>
-                            <span>{totalPrice.toLocaleString()} บาท</span>
-                        </div>
-                    </div>
-                    <button onClick={handleSubmit} disabled={isSubmitting} className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400">
-                        {isSubmitting ? 'Processing...' : 'Confirm Booking'}
-                    </button>
-                </section>
+                </div>
             </div>
         </div>
     );
