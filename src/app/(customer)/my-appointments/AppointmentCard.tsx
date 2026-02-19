@@ -74,9 +74,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, o
                 {/* Title */}
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 leading-tight">{title}</h3>
-                    {isRoom && job.roomTypeInfo?.category && (
-                        <p className="text-xs text-gray-400 font-medium mt-0.5">{job.roomTypeInfo.category}</p>
-                    )}
+
                 </div>
 
                 {/* Date & Duration */}
