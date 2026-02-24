@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useProfile } from '@/context/ProfileProvider';
@@ -126,7 +126,7 @@ export default function MyAppointmentsPage() {
     // ---- Loading / Error States ----
     if (liffLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+            <div className="flex flex-col items-center justify-center  bg-gray-50">
                 <LoadingIcon className="w-12 h-12 text-gray-400" />
             </div>
         );
@@ -136,7 +136,7 @@ export default function MyAppointmentsPage() {
     const headerBgUrl = storeProfile?.headerImage;
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-[#1A1A1A]">
+        <div className=" bg-gray-50 font-sans text-[#1A1A1A]">
             <Notification {...notification} />
             <ConfirmationModal
                 show={!!appointmentToCancel}
