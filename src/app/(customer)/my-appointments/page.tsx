@@ -189,7 +189,7 @@ export default function MyAppointmentsPage() {
             </div>
 
             {/* ── White Card Sheet ── */}
-            <div className="bg-white rounded-[28px] -mt-8 relative z-20 min-h-[calc(100vh-120px)] mx-3 pb-20 shadow-sm">
+            <div className="bg-white rounded-[28px] -mt-8 relative z-20 min-h-[calc(100vh-120px)] mx-3 pb-2 shadow-sm">
 
                 {/* Tab Bar */}
                 <div className="px-4 pt-5 pb-4 flex gap-2.5">
@@ -276,4 +276,5 @@ export default function MyAppointmentsPage() {
         </div>
     );
 }
+
 
