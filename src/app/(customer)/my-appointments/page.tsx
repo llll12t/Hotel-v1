@@ -126,7 +126,7 @@ export default function MyAppointmentsPage() {
     // ---- Loading / Error States ----
     if (liffLoading) {
         return (
-            <div className="flex flex-col items-center justify-center  bg-gray-50">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
                 <LoadingIcon className="w-12 h-12 text-gray-400" />
             </div>
         );
@@ -276,3 +276,4 @@ export default function MyAppointmentsPage() {
         </div>
     );
 }
+
