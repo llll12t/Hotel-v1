@@ -233,7 +233,7 @@ function ReviewConfirmContent() {
 
   const handleConfirm = async () => {
     if (!profile?.userId) {
-      showToast("กรุณาเข้าสู่ระบบก่อนทำการจอง", "warning");
+      showToast("กรุณาเข้าสู่ระบบ LINE ก่อนทำการจอง", "warning");
       return;
     }
     if (!roomType) {
@@ -241,18 +241,20 @@ function ReviewConfirmContent() {
       return;
     }
 
+    const effectiveUserId = profile.userId;
+
     setIsSubmitting(true);
     try {
       const bookingData = {
-        userId: profile.userId,
+        userId: effectiveUserId,
         roomTypeId,
         checkInDate: checkIn,
         checkOutDate: checkOut,
         nights,
         rooms: Math.max(1, roomsCount),
         guests: Number.isFinite(guests) ? guests : 1,
-        status: slipImage ? "awaiting_confirmation" : "pending", // If slip attached, await confirm. Else pending payment.
-        customerInfo: { fullName, phone, email, note, pictureUrl: profile.pictureUrl || "" },
+        status: slipImage ? "awaiting_confirmation" : "pending",
+        customerInfo: { fullName, phone, email, note, pictureUrl: profile?.pictureUrl || "" },
         paymentInfo: {
           originalPrice: originalTotalPrice,
           totalPrice: finalTotalPrice,
@@ -263,7 +265,7 @@ function ReviewConfirmContent() {
         },
       };
 
-      const lineAccessToken = liff?.getAccessToken?.();
+      const lineAccessToken = liff?.getAccessToken?.() || undefined;
       const result = await createBooking(bookingData, { lineAccessToken });
 
       if (!result.success) {
@@ -277,7 +279,8 @@ function ReviewConfirmContent() {
         await submitPaymentSlip(result.id, { slipBase64: slipImage, note: "Uploaded during booking" }, { lineAccessToken });
       }
 
-      if (liff?.isInClient()) {
+      // Only send LINE message if running inside LIFF client
+      if (liff?.isInClient?.()) {
         try {
           const flex = createBookingSuccessFlex({
             bookingId: result.id || "",
@@ -289,7 +292,7 @@ function ReviewConfirmContent() {
           });
           await liff.sendMessages([flex as unknown as object]);
         } catch (msgError) {
-          console.warn("Flex Error", msgError);
+          console.warn("LINE Flex Message skipped (not in LIFF client):", msgError);
         }
       }
 

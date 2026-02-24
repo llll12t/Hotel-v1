@@ -8,6 +8,7 @@ import { Appointment } from '@/types';
 interface AppointmentCardProps {
     job: Appointment;
     onQrCodeClick: (id: string) => void;
+    onPaymentClick: (id: string) => void;
     onCancelClick: (appointment: Appointment) => void;
 }
 
@@ -20,7 +21,7 @@ const statusConfig: Record<string, { text: string; bg: string; dot: string }> = 
     cancelled: { text: 'ยกเลิก', bg: 'bg-red-50 text-red-500', dot: 'bg-red-400' },
 };
 
-const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, onCancelClick }) => {
+const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, onPaymentClick, onCancelClick }) => {
     const { profile } = useProfile();
 
     const status = statusConfig[job.status] || { text: job.status, bg: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400' };
@@ -98,41 +99,66 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({ job, onQrCodeClick, o
                     </span>
                 </div>
 
-                {/* Status + Check-in Row */}
-                <div className="flex gap-2">
-                    {/* Status pill */}
-                    <div className={`flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 border border-gray-100 ${status.bg} bg-opacity-60`}>
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${status.dot}`}></span>
-                        <span className="text-xs font-bold">สถานะ:</span>
-                        <span className="text-xs font-semibold">{status.text}</span>
+                {/* Status + Action Row — 60 / 40 */}
+                <div className="flex gap-2 items-stretch">
+
+                    {/* LEFT 60%: Status pill + Cancel */}
+                    <div className="flex flex-col gap-1.5" style={{ flex: '0 0 60%' }}>
+                        {/* Status pill */}
+                        <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border border-gray-100 ${status.bg} bg-opacity-60`}>
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${status.dot}`}></span>
+                            <span className="text-xs font-bold">สถานะ:</span>
+                            <span className="text-xs font-semibold">{status.text}</span>
+                        </div>
+
+                        {/* Cancel button — ใต้ status ฝั่งซ้าย */}
+                        {isActionable && job.status !== 'in_progress' && (
+                            <button
+                                onClick={() => onCancelClick(job)}
+                                className="text-left text-xs text-gray-400 hover:text-red-500 transition-colors px-1 py-0.5 font-medium"
+                            >
+                                ยกเลิกการจอง
+                            </button>
+                        )}
                     </div>
 
-                    {/* Check-in date */}
-                    {isActionable && (
-                        <button
-                            onClick={() => onQrCodeClick(job.id!)}
-                            className="flex items-center gap-2 bg-[#1A1A1A] text-white rounded-xl px-3 py-2.5 text-xs font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <div className="text-left">
-                                <p className="text-[9px] opacity-70 leading-none">Check in</p>
-                                <p className="text-xs font-bold leading-tight">{checkinLabel || '-'}</p>
-                            </div>
-                        </button>
-                    )}
-                </div>
+                    {/* RIGHT 40%: Action button */}
+                    {isActionable && (() => {
+                        const isPaid = job.status === 'confirmed' || job.paymentInfo?.paymentStatus === 'paid';
 
-                {/* Cancel button (subtle) */}
-                {isActionable && job.status !== 'in_progress' && (
-                    <button
-                        onClick={() => onCancelClick(job)}
-                        className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition-colors py-1 font-medium"
-                    >
-                        ยกเลิกการจอง
-                    </button>
-                )}
+                        if (!isPaid) {
+                            return (
+                                <button
+                                    onClick={() => onPaymentClick(job.id!)}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-[#FF754B] text-white rounded-xl px-3 py-2.5 text-xs font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 opacity-90 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                    </svg>
+                                    <div className="text-left">
+                                        <p className="text-[9px] opacity-80 leading-none">ยังไม่ชำระ</p>
+                                        <p className="text-xs font-bold leading-tight">ชำระเงิน</p>
+                                    </div>
+                                </button>
+                            );
+                        }
+
+                        return (
+                            <button
+                                onClick={() => onQrCodeClick(job.id!)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] text-white rounded-xl px-3 py-2.5 text-xs font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 opacity-80 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <div className="text-left">
+                                    <p className="text-[9px] opacity-70 leading-none">Check in</p>
+                                    <p className="text-xs font-bold leading-tight">{checkinLabel || '-'}</p>
+                                </div>
+                            </button>
+                        );
+                    })()}
+                </div>
             </div>
         </div>
     );

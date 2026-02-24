@@ -101,6 +101,10 @@ export default function MyAppointmentsPage() {
         setShowQrModal(true);
     };
 
+    const handlePaymentClick = (appointmentId: string) => {
+        router.push(`/my-appointments/payment/${appointmentId}`);
+    };
+
     const handleCancelClick = (appointment: Appointment) => {
         setAppointmentToCancel(appointment);
     };
@@ -231,6 +235,7 @@ export default function MyAppointmentsPage() {
                                     key={job.id}
                                     job={job}
                                     onQrCodeClick={() => handleQrCodeClick(job.id!)}
+                                    onPaymentClick={() => handlePaymentClick(job.id!)}
                                     onCancelClick={handleCancelClick}
                                 />
                             ))}
