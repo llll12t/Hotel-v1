@@ -44,21 +44,156 @@ const createBookingSuccessFlex = (payload: {
   totalPrice: number;
   currencySymbol: string;
 }) => {
-  // Simplified Flex Message for success
+  const bookingRef = payload.bookingId.slice(0, 8).toUpperCase();
+
   return {
     type: "flex",
-    altText: `จองห้องสำเร็จ ${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+    altText: `✅ ยืนยันการจองสำเร็จ — ${payload.roomTypeName} | ${payload.checkIn} → ${payload.checkOut}`,
     contents: {
       type: "bubble",
+      size: "kilo",
+      styles: {
+        body: { backgroundColor: "#FFFFFF" },
+        footer: { backgroundColor: "#F8F8F8", separator: true, separatorColor: "#EEEEEE" },
+      },
       body: {
         type: "box",
         layout: "vertical",
+        paddingAll: "20px",
+        spacing: "none",
         contents: [
-          { type: "text", text: "จองห้องสำเร็จ", weight: "bold", size: "xl", align: "center", color: "#1DB446" },
-          { type: "text", text: `ID: ${payload.bookingId.slice(0, 8).toUpperCase()}`, size: "xs", align: "center", color: "#aaaaaa", margin: "sm" }
-        ]
-      }
-    }
+          // ── Top accent bar ──
+          {
+            type: "box",
+            layout: "vertical",
+            height: "4px",
+            backgroundColor: "#1A1A1A",
+            cornerRadius: "4px",
+            margin: "none",
+          },
+          { type: "separator", margin: "lg", color: "#FFFFFF00" },
+
+          // ── Status badge ──
+          {
+            type: "box",
+            layout: "horizontal",
+            alignItems: "center",
+            spacing: "sm",
+            margin: "none",
+            contents: [
+              {
+                type: "box",
+                layout: "vertical",
+                width: "8px",
+                height: "8px",
+                cornerRadius: "4px",
+                backgroundColor: "#22C55E",
+              },
+              {
+                type: "text",
+                text: "BOOKING CONFIRMED",
+                size: "xxs",
+                color: "#22C55E",
+                weight: "bold",
+                letterSpacing: "2px",
+              },
+            ],
+          },
+
+          // ── Room name ──
+          {
+            type: "text",
+            text: payload.roomTypeName,
+            weight: "bold",
+            size: "xl",
+            color: "#111111",
+            margin: "sm",
+            wrap: true,
+          },
+
+          // ── Booking Ref ──
+          {
+            type: "text",
+            text: `Ref: #${bookingRef}`,
+            size: "xxs",
+            color: "#AAAAAA",
+            margin: "xs",
+          },
+
+          // ── Divider ──
+          { type: "separator", margin: "lg", color: "#F0F0F0" },
+
+          // ── Details rows ──
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "md",
+            contents: [
+              // Check-in
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "CHECK-IN", size: "xxs", color: "#999999", weight: "bold", flex: 3, letterSpacing: "1px" },
+                  { type: "text", text: payload.checkIn, size: "sm", color: "#111111", weight: "bold", flex: 5, align: "end" },
+                ],
+              },
+              // Check-out
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "CHECK-OUT", size: "xxs", color: "#999999", weight: "bold", flex: 3, letterSpacing: "1px" },
+                  { type: "text", text: payload.checkOut, size: "sm", color: "#111111", weight: "bold", flex: 5, align: "end" },
+                ],
+              },
+              // Divider thin
+              { type: "separator", color: "#F0F0F0" },
+              // Total
+              {
+                type: "box",
+                layout: "horizontal",
+                alignItems: "center",
+                contents: [
+                  { type: "text", text: "TOTAL", size: "xxs", color: "#999999", weight: "bold", flex: 3, letterSpacing: "1px" },
+                  {
+                    type: "text",
+                    text: `${payload.totalPrice.toLocaleString()} ${payload.currencySymbol}`,
+                    size: "lg",
+                    color: "#111111",
+                    weight: "bold",
+                    flex: 5,
+                    align: "end",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+
+      // ── Footer button ──
+      footer: {
+        type: "box",
+        layout: "vertical",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "button",
+            action: {
+              type: "uri",
+              label: "ดูการจองของฉัน",
+              uri: "https://liff.line.me/2009094099-ImI7azpV/my-appointments",
+            },
+            style: "primary",
+            color: "#1A1A1A",
+            height: "sm",
+            cornerRadius: "8px",
+          },
+        ],
+      },
+    },
   };
 };
 
