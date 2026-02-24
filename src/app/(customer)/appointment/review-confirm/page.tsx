@@ -414,8 +414,8 @@ function ReviewConfirmContent() {
         await submitPaymentSlip(result.id, { slipBase64: slipImage, note: "Uploaded during booking" }, { lineAccessToken });
       }
 
-      // Only send LINE message if running inside LIFF client
-      if (liff?.isInClient?.()) {
+      // ส่ง Flex Message จากผู้ใช้ผ่าน liff.sendMessages
+      if (liff?.sendMessages) {
         try {
           const flex = createBookingSuccessFlex({
             bookingId: result.id || "",
@@ -427,7 +427,7 @@ function ReviewConfirmContent() {
           });
           await liff.sendMessages([flex as unknown as object]);
         } catch (msgError) {
-          console.warn("LINE Flex Message skipped (not in LIFF client):", msgError);
+          console.warn("liff.sendMessages skipped:", msgError);
         }
       }
 
